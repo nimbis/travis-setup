@@ -1,0 +1,383 @@
+#!/bin/bash
+
+set -e
+
+TRAVIS_JOBS_URL_BASE=https://magnum.travis-ci.com/${TRAVIS_REPO_SLUG}/jobs
+TRAVIS_JOB_URL=${TRAVIS_JOBS_URL_BASE}/${TRAVIS_JOB_ID}
+TRAVIS_CACHE=./.travis-cache
+
+# Absolute path for original clone of repository (so always easy to return to)
+SITE_DIR=$(pwd)
+
+reqs_and_decrypt="false"
+
+#####
+# At various times, Travis needs to create new git objects, (commits
+# within the travis-cache repository, tags after deploying to
+# production).
+#
+# In order to do that, git insists that the user have a valid
+# name. So we need to put something in place.
+#
+# In lieu of any better information, I'll use my email address to take
+# responsibility for any actions performed by this script.
+#####
+
+configure_git_authorship() {
+    git config user.email "carl.worth+travis@nimbisservices.com"
+    git config user.name "${TRAVIS_REPO_SLUG} travis-script"
+}
+
+ensure_reqs_and_decrypt() {
+    if [ "$reqs_and_decrypt" = "false" ]; then
+
+    echo "travis_fold:start:npm"
+    sh -e /etc/init.d/xvfb start
+    npm install -g grunt-cli
+    npm install -g git-encrypt
+    npm install -g bower
+    echo "travis_fold:end:npm"
+
+    echo "travis_fold:start:decrypt"
+    git config filter.encrypt.smudge "gitcrypt smudge"
+    git config filter.encrypt.clean "gitcrypt clean"
+    git config diff.encrypt.textconv "gitcrypt diff"
+    git config gitcrypt.salt ${GITCRYPT_SALT}
+    git config gitcrypt.pass ${GITCRYPT_PASS}
+    make decrypt
+
+    if [ -e "site_common" ]; then
+        cd site_common
+
+        git config filter.encrypt.smudge "gitcrypt smudge"
+        git config filter.encrypt.clean "gitcrypt clean"
+        git config diff.encrypt.textconv "gitcrypt diff"
+        git config gitcrypt.salt ${GITCRYPT_SALT}
+        git config gitcrypt.pass ${GITCRYPT_PASS}
+        make decrypt
+
+        cd ${SITE_DIR}
+    fi
+
+    echo "travis_fold:end:decrypt"
+
+    echo "travis_fold:start:reqs"
+    make reqs
+    echo "travis_fold:end:reqs"
+
+    reqs_and_decrypt="true"
+    fi
+}
+
+#####
+# Initialize our git-repository-based travis cache.
+#
+# This function must be called once before any other calls to
+# travis_cache functions.
+#####
+
+init_travis_cache() {
+    if [ ! -e ${TRAVIS_CACHE} ]; then
+       git clone git@github.com:nimbis/travis-cache ${TRAVIS_CACHE}
+    fi
+
+    cd ${TRAVIS_CACHE}
+    # Switch to an absolute path for TRAVIS_CACHE for better reliability
+    TRAVIS_CACHE=$(pwd)
+
+    git pull --no-edit
+    git reset --hard origin/master
+
+    configure_git_authorship
+
+    cd ${SITE_DIR}
+}
+
+#####
+# String together all function arguments. For any very long
+# arguments, (that is, git commit IDs), split them into two pieces
+# after the first two characters.
+#####
+args_to_cache_path() {
+    path=""
+
+    while [ $# -gt 0 ]; do
+    arg=$1
+    shift
+    if [ ${#arg} -gt 35 ]; then
+        arg="${arg:0:2}/${arg:2}"
+    fi
+    path="${path:+$path/}$arg"
+    done
+
+    echo "$path"
+}
+
+#####
+# Perform a lookup in our git-repository-based travis cache.
+#
+# This function prints a non-empty string on a cache hit, (which can
+# be provided to the user as a URL to see the log from the previous
+# Travis run).
+#####
+check_travis_cache() {
+
+    cd ${TRAVIS_CACHE}
+
+    path=$(args_to_cache_path "$@")
+
+    if [ -e "$path" ]; then
+       cat "$path"
+    fi
+
+    cd ${SITE_DIR}
+}
+
+#####
+# Store an item in the travis cache
+#
+# The first argument should be a URL to store in the cache. All
+# remaining arguments are the key, (and should match the arguments
+# used later when calling check_travis_cache).
+#####
+store_travis_cache() {
+
+    cd ${TRAVIS_CACHE}
+
+    url="$1"
+    shift
+
+    echo "travis_fold:start:store_travis_cache_$1"
+
+    path=$(args_to_cache_path "$@")
+
+    mkdir -p $(dirname "$path")
+
+    echo "$url" > "$path"
+
+    git add "$path"
+    git commit -a -m "Add item to travis cache" -m "Path of $path" -m "URL of $url"
+
+    # If the first push fails, pull then push again. If that fails too, give up.
+    git push origin master || git pull --no-edit && git push origin master || true
+
+    cd ${SITE_DIR}
+
+    echo "travis_fold:end:store_travis_cache_$1"    
+}
+
+#####
+# For a push to the sites repository, we push out corresponding
+# commits (along with tags) to the site-$SITE repository as well as
+# site-common. Those pushes will then result in testing and/or
+# deployment from within the site-$SITE repository, so there's nothing
+# else we need to do here, (no lettuce tests, no deployment, etc.)
+#####
+travis_for_sites() {
+
+    echo "=================== Running Travis tests for site $SITE ==================="
+
+    # If this is a commit being pushed to the master branch, then
+    # we want to test and deploy to staging.
+    #
+    # Note: Travis is obnoxious in that it clobbers TRAVIS_BRANCH
+    # with the tag name if a tag is being pushed, (even though the
+    # same name is set in TRAVIS_TAG too). The upshot is that
+    # pushing a tag at the same time as pushing to master will
+    # prevent the detection of the master branch here, and will
+    # prevent Travis from doing any deployment.
+    #
+    # If, instead, this is a push of a tag named
+    # "production-$SITE" then we want to deploy to production, but
+    # *only* for the particular site.
+    #
+    # Any other case is treated as a feature branch, (it will be
+    # tested, but not deployed).
+
+    case "$TRAVIS_BRANCH" in
+    master)
+        mode="staging"
+        ;;
+    production-*)
+        if [ "$TRAVIS_BRANCH" = "production-$SITE" ]; then
+        mode="production"
+        else
+        echo "This tag $TRAVIS_BRANCH was not intended for site $SITE"
+        echo "Exiting"
+        exit 0
+        fi
+        ;;
+    *)
+        mode="feature"
+        ;;
+    esac
+
+    echo "travis_fold:start:subtree_pushes"
+    prepare_args=$(./prepare-deploy "$mode" "$SITE" travis-${TRAVIS_BUILD_NUMBER})
+    eval ${prepare_args/ /;}
+    echo "travis_fold:end:subtree_pushes"
+
+    cd ./.subtree-clones/site-${SITE}; 
+    deploy_commit=$(git rev-parse ${DEPLOY_TAG})
+
+    # Update site-$SITE master branch whenever pushing to "sites" master
+    if [ "$TRAVIS_BRANCH" = "master" ]; then
+    git merge ${DEPLOY_TAG}
+    git push origin master
+    fi
+    cd ../..
+
+    cd ./.subtree-clones/site-common
+    deploy_common_commit=$(git rev-parse ${DEPLOY_COMMON_TAG})
+
+    # Update site-common master branch whenever pushing to "sites" master
+    if [ "$TRAVIS_BRANCH" = "master" ]; then
+    git merge ${DEPLOY_COMMON_TAG}
+    git push origin master
+    fi
+    cd ../..
+
+    echo "Pushed tag $DEPLOY_TAG to site-$SITE and $DEPLOY_COMMON_TAG to site-common"
+    echo "See the corresponding Travis run in site-$SITE for testing results."
+}
+
+#####
+# For a push to one of the separated site-$SITE repositories, we
+# actual perform lettuce tests. And, if the tag that was pushed is
+# named "staging-*" then we also deploy to the staging server.
+#####
+travis_for_separated_site_repository() {
+   
+    common_commit=$( (cd site_common; git rev-parse HEAD) )
+
+    echo "travis_fold:start:check_travis_cache_tested"
+    tested=$(check_travis_cache tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit})
+    echo "travis_fold:end:check_travis_cache_tested"
+
+    if [ -n "$tested" ]; then
+    echo "This commit has previously been tested successfully. Not testing again."
+    echo ""
+    echo "The report from the previous run can be seen here:"
+    echo ""
+    echo "$tested"
+    else
+
+    ensure_reqs_and_decrypt
+    
+    make travis-tests
+
+    #####
+    # Now that testing has completed successfully, add a new
+    # commit to the cache repository and push it out.
+    ####
+    store_travis_cache $TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
+    fi
+
+    ####
+    # If the tag pushed is named "staging-*" or "production-*" then we
+    # need to deploy. Otherwise, we're done here now that we've
+    # tested.
+    ####
+    case "${TRAVIS_TAG}" in
+    staging-*)
+        mode="staging"
+        ;;
+    production-*)  
+        mode="production"
+        ;;
+    *)
+        echo "Travis tag (${TRAVIS_TAG}) not a \"staging-\" nor a"
+        echo "\"production-\" tag so not deploying."
+        exit 0;
+        ;;
+    esac
+
+    echo "travis_fold:start:check_travis_cache_deployed"    
+    deployed=$(check_travis_cache deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit})
+    echo "travis_fold:end:check_travis_cache_deployed"    
+
+    if [ -n "$deployed" ]; then
+    echo "This commit has been previously deployed successfully. Not deploying again."
+    echo ""
+    echo "The report from the previous deploy run can be seen here:"
+    echo ""
+    echo "$deployed"
+    exit 0
+    fi
+
+    if [ "$SITE" = "tss" ]; then
+    echo "Travis is not authorized to deploy to the tss site."
+    echo ""
+        echo "A developer with the necessary credentials will need to manually"
+    echo "deploy with a command such as:"
+    echo ""
+    echo "  make deploy-${mode} SITE=tss"
+    echo ""
+    echo "run from the top-level of the 'sites' repository."
+    exit 0
+    fi
+
+    ensure_reqs_and_decrypt
+
+    echo "travis_fold:start:deploy"
+    make deploy-${mode} DEPLOY_TAG=${TRAVIS_TAG} DEPLOY_COMMON_TAG=${SITE}-${TRAVIS_TAG}
+    echo "travis_fold:end:deploy"
+
+    #####
+    # Now that deployment has completed successfully, there are two
+    # final tasks to be done:
+    #
+    # 1. For deployment to production, we need to add the new tag to
+    #    the "sites" repository for the release, (and delete the
+    #    production-$SITE tag that locks the whole process to a single
+    #    concurrent deployment.
+    #
+    # 2. For any deploy, we add anew commit to the cache repository
+    #    and push it out.
+    ####
+
+    SITE_VERSION=$(python ./setup.py --version)
+    if [ $mode = "production" ]; then
+    git clone git@github.com:nimbis/sites ./.sites-clone
+    cd ./.sites-clone
+
+    configure_git_authorship
+    
+    git tag -a -m "Site $SITE release version $SITE_VERSION" $SITE-v$SITE_VERSION production-$SITE
+    git push origin $SITE-v$SITE_VERSION
+    git push origin :production-$SITE
+
+    cd ${SITE_DIR}
+    fi
+
+    store_travis_cache $TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
+}
+
+# Install PhantomJS.  Opting to place in the top level contact so the exports
+# are handled correctly and we are in the top level directory.
+mkdir nimbis-bin
+mkdir nimbis-lib
+export PATH=$PWD/nimbis-bin:$PATH
+export LD_LIBRARY_PATH=$PWD/nimbis-lib:$LD_LIBRARY_PATH
+wget https://s3.amazonaws.com/nimbis-phantomjs/phantomjs -O nimbis-bin/phantomjs
+wget https://s3.amazonaws.com/nimbis-phantomjs/libicui18n.so.52 -O nimbis-lib/libicui18n.so.52
+wget https://s3.amazonaws.com/nimbis-phantomjs/libicuuc.so.52 -O nimbis-lib/libicuuc.so.52
+wget https://s3.amazonaws.com/nimbis-phantomjs/libicudata.so.52 -O nimbis-lib/libicudata.so.52
+chmod a+x nimbis-bin/phantomjs
+echo "travis_fold:start:phantom_version"
+phantomjs -v
+echo "travis_fold:end:phantom_version"
+
+echo "travis_fold:start:init_travis_cache"
+init_travis_cache
+echo "travis_fold:end:init_travis_cache"
+
+# The major division in this script is whether we are running from the
+# combined "sites" repository or from one of the separated site-$SITE
+# repositories
+
+if [ "$TRAVIS_REPO_SLUG" = "nimbis/sites" ]; then
+    travis_for_sites
+else
+    travis_for_separated_site_repository
+fi
