@@ -163,7 +163,7 @@ store_travis_cache() {
 
     cd ${SITE_DIR}
 
-    echo "travis_fold:end:store_travis_cache_$1"    
+    echo "travis_fold:end:store_travis_cache_$1"
 }
 
 #####
@@ -217,7 +217,7 @@ travis_for_sites() {
     eval ${prepare_args/ /;}
     echo "travis_fold:end:subtree_pushes"
 
-    cd ./.subtree-clones/site-${SITE}; 
+    cd ./.subtree-clones/site-${SITE};
     deploy_commit=$(git rev-parse ${DEPLOY_TAG})
 
     # Update site-$SITE master branch whenever pushing to "sites" master
@@ -247,7 +247,7 @@ travis_for_sites() {
 # named "staging-*" then we also deploy to the staging server.
 #####
 travis_for_separated_site_repository() {
-   
+
     common_commit=$( (cd site_common; git rev-parse HEAD) )
 
     echo "travis_fold:start:check_travis_cache_tested"
@@ -263,7 +263,7 @@ travis_for_separated_site_repository() {
     else
 
     ensure_reqs_and_decrypt
-    
+
     make travis-tests
 
     #####
@@ -282,7 +282,7 @@ travis_for_separated_site_repository() {
     staging-*)
         mode="staging"
         ;;
-    production-*)  
+    production-*)
         mode="production"
         ;;
     *)
@@ -292,9 +292,9 @@ travis_for_separated_site_repository() {
         ;;
     esac
 
-    echo "travis_fold:start:check_travis_cache_deployed"    
+    echo "travis_fold:start:check_travis_cache_deployed"
     deployed=$(check_travis_cache deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit})
-    echo "travis_fold:end:check_travis_cache_deployed"    
+    echo "travis_fold:end:check_travis_cache_deployed"
 
     if [ -n "$deployed" ]; then
     echo "This commit has been previously deployed successfully. Not deploying again."
@@ -342,7 +342,7 @@ travis_for_separated_site_repository() {
     cd ./.sites-clone
 
     configure_git_authorship
-    
+
     git tag -a -m "Site $SITE release version $SITE_VERSION" $SITE-v$SITE_VERSION production-$SITE
     git push origin $SITE-v$SITE_VERSION
     git push origin :production-$SITE
