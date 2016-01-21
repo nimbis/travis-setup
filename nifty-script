@@ -430,20 +430,23 @@ travis_for_apps() {
     exit 0
 }
 
-# Install PhantomJS.  Opting to place in the top level contact so the exports
-# are handled correctly and we are in the top level directory.
-mkdir nimbis-bin
-mkdir nimbis-lib
-export PATH=$PWD/nimbis-bin:$PATH
-export LD_LIBRARY_PATH=$PWD/nimbis-lib:$LD_LIBRARY_PATH
-wget https://s3.amazonaws.com/nimbis-phantomjs/phantomjs -O nimbis-bin/phantomjs
-wget https://s3.amazonaws.com/nimbis-phantomjs/libicui18n.so.52 -O nimbis-lib/libicui18n.so.52
-wget https://s3.amazonaws.com/nimbis-phantomjs/libicuuc.so.52 -O nimbis-lib/libicuuc.so.52
-wget https://s3.amazonaws.com/nimbis-phantomjs/libicudata.so.52 -O nimbis-lib/libicudata.so.52
-chmod a+x nimbis-bin/phantomjs
-echo "travis_fold:start:phantom_version"
-phantomjs -v
-echo "travis_fold:end:phantom_version"
+# --- This block is necessary only for the individual site repositories. ---
+if [[ "$TRAVIS_REPO_SLUG" = "nimbis/site-"* ]]; then
+    # Install PhantomJS.  Opting to place in the top level contact so the exports
+    # are handled correctly and we are in the top level directory.
+    mkdir nimbis-bin
+    mkdir nimbis-lib
+    export PATH=$PWD/nimbis-bin:$PATH
+    export LD_LIBRARY_PATH=$PWD/nimbis-lib:$LD_LIBRARY_PATH
+    wget https://s3.amazonaws.com/nimbis-phantomjs/phantomjs -O nimbis-bin/phantomjs
+    wget https://s3.amazonaws.com/nimbis-phantomjs/libicui18n.so.52 -O nimbis-lib/libicui18n.so.52
+    wget https://s3.amazonaws.com/nimbis-phantomjs/libicuuc.so.52 -O nimbis-lib/libicuuc.so.52
+    wget https://s3.amazonaws.com/nimbis-phantomjs/libicudata.so.52 -O nimbis-lib/libicudata.so.52
+    chmod a+x nimbis-bin/phantomjs
+    echo "travis_fold:start:phantom_version"
+    phantomjs -v
+    echo "travis_fold:end:phantom_version"
+fi
 
 echo "travis_fold:start:init_travis_cache"
 init_travis_cache
