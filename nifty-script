@@ -2,6 +2,7 @@
 
 set -e
 
+GIT_CONFIG_EMAIL=${GIT_CONFIG_EMAIL:=carl.worth+travis@nimbisservices.com}
 TRAVIS_JOBS_URL_BASE=https://magnum.travis-ci.com/${TRAVIS_REPO_SLUG}/jobs
 TRAVIS_JOB_URL=${TRAVIS_JOBS_URL_BASE}/${TRAVIS_JOB_ID}
 TRAVIS_CACHE=./.travis-cache
@@ -24,8 +25,8 @@ reqs_and_decrypt="false"
 #####
 
 configure_git_authorship() {
-    git config user.email "carl.worth+travis@nimbisservices.com"
-    git config user.name "${TRAVIS_REPO_SLUG} travis-script"
+    git config user.email "${GIT_CONFIG_EMAIL}"
+    git config user.name "${TRAVIS_REPO_SLUG} travis-metadata-script"
 }
 
 ensure_reqs_and_decrypt() {
