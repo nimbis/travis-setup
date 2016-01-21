@@ -354,6 +354,82 @@ travis_for_separated_site_repository() {
     store_travis_cache $TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
 }
 
+#####
+# For a push to a stand-alone Django app repository, we perform
+# coverage testing. We store the results for the master branch
+# in the travis-cache repository. We compare current coverage test
+# results to these store results, and if merging the current branch
+# would result in a reduction of code test coverage, we fail the build.
+#####
+travis_for_apps() {
+    if hash coverage 2> /dev/null; then
+        make coverage
+    else
+        echo "Coverage testing cannot proceed because the coverage command could not be found."
+        echo ""
+        exit 1
+    fi
+
+    # Print the coverage report, get the last line containing the coverage totals,
+    # and remove the "%" from the total project coverage percentage.
+
+    # Line of coverage report consisting of the coverage total figures
+    coverage_totals=$(coverage report -m | tail -n 1)
+
+    # Total coverage percentage number with the percent sign removed
+    current_coverage=$(echo $coverage_totals | awk '{print $NF}' | cut -d "%" -f 1)
+
+    # The last line that appeared in the coverage report is the line that
+    # divides the column headers and the calcuated coverage totals. This
+    # means that this report is empty and there is an error in the way coverage
+    # is configured.
+    if [[ $coverage_totals == "-"* ]]; then
+        echo "This coverage report is empty. Please check the coverage settings and try again."
+        echo ""
+        exit 1
+    fi
+
+    master_coverage=$(check_travis_cache coverage ${TRAVIS_REPO_SLUG} master)
+
+    # If this repository has no coverage information saved for the master branch...
+    if [ -z "$master_coverage" ]; then
+        echo "The master branch has not previously been tested for coverage."
+        echo ""
+        # If this is not the master branch, report that we have no value to compare
+        # coverage to and exit without failing.
+        if [ "$TRAVIS_BRANCH" != "master" ]; then
+            echo "Coverage comparison is being skipped."
+            echo "This is because the master branch has no coverage value to compare against."
+            echo ""
+            exit 0
+        fi
+    else
+        echo "master branch total coverage: $master_coverage%"
+        echo "$TRAVIS_BRANCH branch total coverage: $current_coverage%"
+        echo ""
+        # Fail this build if coverage would decrease.
+        if [ $current_coverage -lt $master_coverage ]; then
+            echo "Test coverage has decreased compared to the master branch!"
+            echo "This build will be failed."
+            echo ""
+            exit 1
+        fi
+        echo "Coverage comparison check was successful."
+        echo ""
+    fi
+
+    # Coverage has potentially increased. If Travis reports this branch as,
+    # the master branch and this is not a pull request, update the coverage
+    # figure stored in the cache if necessary.
+    if [[ "$TRAVIS_BRANCH" = "master"  && "$TRAVIS_PULL_REQUEST" = "false" ]]; then
+        store_travis_cache $current_coverage coverage ${TRAVIS_REPO_SLUG} master
+        echo "Coverage cache updated successfully."
+        echo ""
+    fi
+
+    exit 0
+}
+
 # Install PhantomJS.  Opting to place in the top level contact so the exports
 # are handled correctly and we are in the top level directory.
 mkdir nimbis-bin
@@ -379,6 +455,8 @@ echo "travis_fold:end:init_travis_cache"
 
 if [ "$TRAVIS_REPO_SLUG" = "nimbis/sites" ]; then
     travis_for_sites
-else
+elif [[ "$TRAVIS_REPO_SLUG" = "nimbis/site-"* ]]; then
     travis_for_separated_site_repository
+else
+    travis_for_apps
 fi
