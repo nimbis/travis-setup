@@ -84,7 +84,7 @@ URL used to store Travis job information in the cache.
 
 Defaults to `${TRAVIS_JOBS_URL_BASE}/${TRAVIS_JOB_ID}`
 
-### TRAVIS_CACHE
+### TRAVIS_CACHE_DIR
 
 Directory where the Travis cache repository will be cloned.
 

@@ -5,7 +5,7 @@ set -e
 GIT_CONFIG_EMAIL=${GIT_CONFIG_EMAIL:=carl.worth+travis@nimbisservices.com}
 TRAVIS_JOBS_URL_BASE=https://magnum.travis-ci.com/${TRAVIS_REPO_SLUG}/jobs
 TRAVIS_JOB_URL=${TRAVIS_JOBS_URL_BASE}/${TRAVIS_JOB_ID}
-TRAVIS_CACHE=./.travis-cache
+TRAVIS_CACHE_DIR=./.travis-cache
 # This should be set by the .travis.yml file if the value needs to change,
 # like when using a public cache repository.
 TRAVIS_CACHE_REPO=${TRAVIS_CACHE_REPO:=git@github.com:nimbis/travis-cache}
@@ -81,11 +81,11 @@ ensure_reqs_and_decrypt() {
 #####
 
 init_travis_cache() {
-    if [ ! -e ${TRAVIS_CACHE} ]; then
-       git clone ${TRAVIS_CACHE_REPO} ${TRAVIS_CACHE}
+    if [ ! -e ${TRAVIS_CACHE_DIR} ]; then
+       git clone ${TRAVIS_CACHE_REPO} ${TRAVIS_CACHE_DIR}
     fi
 
-    cd ${TRAVIS_CACHE}
+    cd ${TRAVIS_CACHE_DIR}
     # Switch to an absolute path for TRAVIS_CACHE for better reliability
     TRAVIS_CACHE=$(pwd)
 
