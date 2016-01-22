@@ -2,13 +2,13 @@
 
 set -e
 
-GIT_CONFIG_EMAIL=${GIT_CONFIG_EMAIL:=carl.worth+travis@nimbisservices.com}
-TRAVIS_JOBS_URL_BASE=https://magnum.travis-ci.com/${TRAVIS_REPO_SLUG}/jobs
-TRAVIS_JOB_URL=${TRAVIS_JOBS_URL_BASE}/${TRAVIS_JOB_ID}
-TRAVIS_CACHE_DIR=./.travis-cache
+NIFTY_GIT_CONFIG_EMAIL=${NIFTY_GIT_CONFIG_EMAIL:=carl.worth+travis@nimbisservices.com}
+NIFTY_TRAVIS_JOBS_URL_BASE=https://magnum.travis-ci.com/${TRAVIS_REPO_SLUG}/jobs
+NIFTY_TRAVIS_JOB_URL=${NIFTY_TRAVIS_JOBS_URL_BASE}/${TRAVIS_JOB_ID}
+NIFTY_TRAVIS_CACHE_DIR=./.travis-cache
 # This should be set by the .travis.yml file if the value needs to change,
 # like when using a public cache repository.
-TRAVIS_CACHE_REPO=${TRAVIS_CACHE_REPO:=git@github.com:nimbis/travis-cache}
+NIFTY_TRAVIS_CACHE_REPO=${NIFTY_TRAVIS_CACHE_REPO:=git@github.com:nimbis/travis-cache}
 
 # Absolute path for original clone of repository (so always easy to return to)
 SITE_DIR=$(pwd)
@@ -28,7 +28,7 @@ reqs_and_decrypt="false"
 #####
 
 configure_git_authorship() {
-    git config user.email "${GIT_CONFIG_EMAIL}"
+    git config user.email "${NIFTY_GIT_CONFIG_EMAIL}"
     git config user.name "${TRAVIS_REPO_SLUG} travis-metadata-script"
 }
 
@@ -81,13 +81,13 @@ ensure_reqs_and_decrypt() {
 #####
 
 init_travis_cache() {
-    if [ ! -e ${TRAVIS_CACHE_DIR} ]; then
-       git clone ${TRAVIS_CACHE_REPO} ${TRAVIS_CACHE_DIR}
+    if [ ! -e ${NIFTY_TRAVIS_CACHE_DIR} ]; then
+       git clone ${NIFTY_TRAVIS_CACHE_REPO} ${NIFTY_TRAVIS_CACHE_DIR}
     fi
 
-    cd ${TRAVIS_CACHE_DIR}
-    # Switch to an absolute path for TRAVIS_CACHE for better reliability
-    TRAVIS_CACHE=$(pwd)
+    cd ${NIFTY_TRAVIS_CACHE_DIR}
+    # Switch to an absolute path for NIFTY_TRAVIS_CACHE_DIR for better reliability
+    NIFTY_TRAVIS_CACHE_DIR=$(pwd)
 
     git pull --no-edit
     git reset --hard origin/master
@@ -126,7 +126,7 @@ args_to_cache_path() {
 #####
 check_travis_cache() {
 
-    cd ${TRAVIS_CACHE}
+    cd ${NIFTY_TRAVIS_CACHE_DIR}
 
     path=$(args_to_cache_path "$@")
 
@@ -146,7 +146,7 @@ check_travis_cache() {
 #####
 store_travis_cache() {
 
-    cd ${TRAVIS_CACHE}
+    cd ${NIFTY_TRAVIS_CACHE_DIR}
 
     url="$1"
     shift
@@ -274,7 +274,7 @@ travis_for_separated_site_repository() {
     # Now that testing has completed successfully, add a new
     # commit to the cache repository and push it out.
     ####
-    store_travis_cache $TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
+    store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
     fi
 
     ####
@@ -354,7 +354,7 @@ travis_for_separated_site_repository() {
     cd ${SITE_DIR}
     fi
 
-    store_travis_cache $TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
+    store_travis_cache $NIFTY_TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
 }
 
 #####

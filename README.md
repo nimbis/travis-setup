@@ -67,24 +67,24 @@ This requires that a `make coverage` target exists in the app's Makefile.
 
 The following are the environment variable used in this script and their defaults:
 
-### GIT_CONFIG_EMAIL
+### NIFTY_GIT_CONFIG_EMAIL
 
 Email address that is used to configure git in the `configure_git_authorship` function.
 Defaults to `carl.worth+travis@nimbisservices.com`.
 
-### TRAVIS_JOBS_URL_BASE
+### NIFTY_TRAVIS_JOBS_URL_BASE
 
-Base of the URL used in the construction of the `TRAVIS_JOB_URL` variable.
+Base of the URL used in the construction of the `NIFTY_TRAVIS_JOB_URL` variable.
 
 Defaults to `https://magnum.travis-ci.com/${TRAVIS_REPO_SLUG}/jobs`
 
-### TRAVIS_JOB_URL
+### NIFTY_TRAVIS_JOB_URL
 
 URL used to store Travis job information in the cache.
 
-Defaults to `${TRAVIS_JOBS_URL_BASE}/${TRAVIS_JOB_ID}`
+Defaults to `${NIFTY_TRAVIS_JOBS_URL_BASE}/${NIFTY_TRAVIS_JOB_ID}`
 
-### TRAVIS_CACHE_DIR
+### NIFTY_TRAVIS_CACHE_DIR
 
 Directory where the Travis cache repository will be cloned.
 
