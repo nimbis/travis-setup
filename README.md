@@ -10,36 +10,33 @@ This script currently supports the storage and retrieval of the following types 
 * Travis build tagging information.
 * Python [coverage](https://coverage.readthedocs.org/en/coverage-4.0.3/) testing information.
 
-## Script Functions
+## Usage
 
-Below is a brief description of the individual functions in this script.
-See comments in the script for more detailed information.
+Sourcing this script clones the cache repository to the location specified
+by the [NIFTY_TRAVIS_CACHE_DIR](###NIFTY_TRAVIS_CACHE_DIR) variable. Then you
+call one of public functions defined by the script in your `.travis.yml` file
+like so:
 
-### configure_git_authorship
-Configure git on Travis using the specified email address and the
-`TRAVIS_REPO_SLUG` variable.
+```
+env:
+  global:
+  - NIFTY_TRAVIS_CACHE_REPO=https://github.com/nimbis/travis-cache-public.git
+before_script:
+- git clone https://github.com/nimbis/nifty.git ./.nifty
+script:
+- source ./.nifty/nifty-script
+- verify_coverage_improvement
+```
 
-### ensure_reqs_and_decrypt
-Used to install requirements from NPM/PyPI and setup and decrypt files using
-[gitencrypt](https://github.com/shadowhand/git-encrypt)
+## Public Functions
 
-### args_to_cache_path
-Takes the specified arguments and strings them together to construct a
-path to a cache object. Arguments longer than 35 characters are split after
-the first two characters.
-
-### check_travis_cache
-Takes a path to an expected cache object and prints a non-empty string
-on a cache hit.
-
-### store_travis_cache
-Stores an item in the travis cache. The first argument should be a URL
-to store in the cache. All remaining arguments are the key, (and should
-match the arguments used later when calling check_travis_cache).
+Below is a brief description of the individual public functions defined
+in this script. See comments in the script itself for more detailed
+information.
 
 ### travis_for_sites
 
-Determines the codepath for the `sites` repository.
+This function is for use with the `sites` repository.
 For a push to the `sites` repository, we push out corresponding
 commits (along with tags) to the site-$SITE repository as well as
 site-common. Those pushes will then result in testing and/or
@@ -48,20 +45,17 @@ else we need to do here, (no lettuce tests, no deployment, etc.)
 
 ### travis_for_separated_site_repository
 
-Determines the codepath for the `site-*` repositories.
+This function is for use with the `site-*` repositories.
 For a push to one of the separated site-$SITE repositories, we
 actually perform testing. And, if the tag that was pushed is
 named "staging-*" then we also deploy to the staging server.
 
-### travis_for_apps
+### verify_coverage_improvement
 
-Determines the codepath for stand-alone Django app repositories.
-For a push to a stand-alone Django app repository, we perform
-coverage testing. We store the results for the master branch
-in the travis-cache repository. We compare current coverage test
-results to these store results, and if merging the current branch
-would result in a reduction of code test coverage, we fail the build.
-This requires that a `make coverage` target exists in the app's Makefile.
+We store the coverage results for the master branch in the travis-cache
+repository. We compare current coverage test results to these store
+results, and if merging the current branch would result in a reduction
+of code test coverage, we fail the build.
 
 ## Script variables
 

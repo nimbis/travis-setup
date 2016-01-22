@@ -208,7 +208,7 @@ travis_for_sites() {
         else
         echo "This tag $TRAVIS_BRANCH was not intended for site $SITE"
         echo "Exiting"
-        exit 0
+        return
         fi
         ;;
     *)
@@ -252,6 +252,22 @@ travis_for_sites() {
 #####
 travis_for_separated_site_repository() {
 
+    # Set up the Travis build environment
+    # Install PhantomJS.  Opting to place in the top level contact so the exports
+    # are handled correctly and we are in the top level directory.
+    mkdir nimbis-bin
+    mkdir nimbis-lib
+    export PATH=$PWD/nimbis-bin:$PATH
+    export LD_LIBRARY_PATH=$PWD/nimbis-lib:$LD_LIBRARY_PATH
+    wget https://s3.amazonaws.com/nimbis-phantomjs/phantomjs -O nimbis-bin/phantomjs
+    wget https://s3.amazonaws.com/nimbis-phantomjs/libicui18n.so.52 -O nimbis-lib/libicui18n.so.52
+    wget https://s3.amazonaws.com/nimbis-phantomjs/libicuuc.so.52 -O nimbis-lib/libicuuc.so.52
+    wget https://s3.amazonaws.com/nimbis-phantomjs/libicudata.so.52 -O nimbis-lib/libicudata.so.52
+    chmod a+x nimbis-bin/phantomjs
+    echo "travis_fold:start:phantom_version"
+    phantomjs -v
+    echo "travis_fold:end:phantom_version"
+
     common_commit=$( (cd site_common; git rev-parse HEAD) )
 
     echo "travis_fold:start:check_travis_cache_tested"
@@ -292,7 +308,7 @@ travis_for_separated_site_repository() {
     *)
         echo "Travis tag (${TRAVIS_TAG}) not a \"staging-\" nor a"
         echo "\"production-\" tag so not deploying."
-        exit 0;
+        return;
         ;;
     esac
 
@@ -306,7 +322,7 @@ travis_for_separated_site_repository() {
     echo "The report from the previous deploy run can be seen here:"
     echo ""
     echo "$deployed"
-    exit 0
+    return
     fi
 
     if [ "$SITE" = "tss" ]; then
@@ -318,7 +334,7 @@ travis_for_separated_site_repository() {
     echo "  make deploy-${mode} SITE=tss"
     echo ""
     echo "run from the top-level of the 'sites' repository."
-    exit 0
+    return
     fi
 
     ensure_reqs_and_decrypt
@@ -358,19 +374,18 @@ travis_for_separated_site_repository() {
 }
 
 #####
-# For a push to a stand-alone Django app repository, we perform
-# coverage testing. We store the results for the master branch
-# in the travis-cache repository. We compare current coverage test
-# results to these store results, and if merging the current branch
-# would result in a reduction of code test coverage, we fail the build.
+# We store the coverage results for the master branch in the travis-cache
+# repository. We compare current coverage test results to these store
+# results, and if merging the current branch would result in a reduction
+# of code test coverage, we fail the build.
 #####
-travis_for_apps() {
+verify_coverage_improvement() {
     if hash coverage 2> /dev/null; then
         make coverage
     else
         echo "Coverage testing cannot proceed because the coverage command could not be found."
         echo ""
-        exit 1
+        return 1
     fi
 
     # Print the coverage report, get the last line containing the coverage totals,
@@ -389,7 +404,7 @@ travis_for_apps() {
     if [[ $coverage_totals == "-"* ]]; then
         echo "This coverage report is empty. Please check the coverage settings and try again."
         echo ""
-        exit 1
+        return 1
     fi
 
     master_coverage=$(check_travis_cache coverage ${TRAVIS_REPO_SLUG} master)
@@ -404,7 +419,7 @@ travis_for_apps() {
             echo "Coverage comparison is being skipped."
             echo "This is because the master branch has no coverage value to compare against."
             echo ""
-            exit 0
+            return
         fi
     else
         echo "master branch total coverage: $master_coverage%"
@@ -415,7 +430,7 @@ travis_for_apps() {
             echo "Test coverage has decreased compared to the master branch!"
             echo "This build will be failed."
             echo ""
-            exit 1
+            return 1
         fi
         echo "Coverage comparison check was successful."
         echo ""
@@ -430,39 +445,11 @@ travis_for_apps() {
         echo ""
     fi
 
-    exit 0
+    return
 }
 
-# --- This block is necessary only for the individual site repositories. ---
-if [[ "$TRAVIS_REPO_SLUG" = "nimbis/site-"* ]]; then
-    # Install PhantomJS.  Opting to place in the top level contact so the exports
-    # are handled correctly and we are in the top level directory.
-    mkdir nimbis-bin
-    mkdir nimbis-lib
-    export PATH=$PWD/nimbis-bin:$PATH
-    export LD_LIBRARY_PATH=$PWD/nimbis-lib:$LD_LIBRARY_PATH
-    wget https://s3.amazonaws.com/nimbis-phantomjs/phantomjs -O nimbis-bin/phantomjs
-    wget https://s3.amazonaws.com/nimbis-phantomjs/libicui18n.so.52 -O nimbis-lib/libicui18n.so.52
-    wget https://s3.amazonaws.com/nimbis-phantomjs/libicuuc.so.52 -O nimbis-lib/libicuuc.so.52
-    wget https://s3.amazonaws.com/nimbis-phantomjs/libicudata.so.52 -O nimbis-lib/libicudata.so.52
-    chmod a+x nimbis-bin/phantomjs
-    echo "travis_fold:start:phantom_version"
-    phantomjs -v
-    echo "travis_fold:end:phantom_version"
-fi
-
+# The only thing this script immediately does when sourced is call __init_travis_cache
+# to initialize our git-repository-based travis cache.
 echo "travis_fold:start:init_travis_cache"
 init_travis_cache
 echo "travis_fold:end:init_travis_cache"
-
-# The major division in this script is whether we are running from the
-# combined "sites" repository or from one of the separated site-$SITE
-# repositories
-
-if [ "$TRAVIS_REPO_SLUG" = "nimbis/sites" ]; then
-    travis_for_sites
-elif [[ "$TRAVIS_REPO_SLUG" = "nimbis/site-"* ]]; then
-    travis_for_separated_site_repository
-else
-    travis_for_apps
-fi
