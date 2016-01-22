@@ -27,12 +27,12 @@ reqs_and_decrypt="false"
 # responsibility for any actions performed by this script.
 #####
 
-configure_git_authorship() {
+__configure_git_authorship() {
     git config user.email "${NIFTY_GIT_CONFIG_EMAIL}"
     git config user.name "${TRAVIS_REPO_SLUG} travis-metadata-script"
 }
 
-ensure_reqs_and_decrypt() {
+__ensure_reqs_and_decrypt() {
     if [ "$reqs_and_decrypt" = "false" ]; then
 
     echo "travis_fold:start:npm"
@@ -80,7 +80,7 @@ ensure_reqs_and_decrypt() {
 # travis_cache functions.
 #####
 
-init_travis_cache() {
+__init_travis_cache() {
     if [ ! -e ${NIFTY_TRAVIS_CACHE_DIR} ]; then
        git clone ${NIFTY_TRAVIS_CACHE_REPO} ${NIFTY_TRAVIS_CACHE_DIR}
     fi
@@ -92,7 +92,7 @@ init_travis_cache() {
     git pull --no-edit
     git reset --hard origin/master
 
-    configure_git_authorship
+    __configure_git_authorship
 
     cd ${SITE_DIR}
 }
@@ -102,7 +102,7 @@ init_travis_cache() {
 # arguments, (that is, git commit IDs), split them into two pieces
 # after the first two characters.
 #####
-args_to_cache_path() {
+__args_to_cache_path() {
     path=""
 
     while [ $# -gt 0 ]; do
@@ -124,11 +124,11 @@ args_to_cache_path() {
 # be provided to the user as a URL to see the log from the previous
 # Travis run).
 #####
-check_travis_cache() {
+__check_travis_cache() {
 
     cd ${NIFTY_TRAVIS_CACHE_DIR}
 
-    path=$(args_to_cache_path "$@")
+    path=$(__args_to_cache_path "$@")
 
     if [ -e "$path" ]; then
        cat "$path"
@@ -142,18 +142,18 @@ check_travis_cache() {
 #
 # The first argument should be a URL to store in the cache. All
 # remaining arguments are the key, (and should match the arguments
-# used later when calling check_travis_cache).
+# used later when calling __check_travis_cache).
 #####
-store_travis_cache() {
+__store_travis_cache() {
 
     cd ${NIFTY_TRAVIS_CACHE_DIR}
 
     url="$1"
     shift
 
-    echo "travis_fold:start:store_travis_cache_$1"
+    echo "travis_fold:start:__store_travis_cache_$1"
 
-    path=$(args_to_cache_path "$@")
+    path=$(__args_to_cache_path "$@")
 
     mkdir -p $(dirname "$path")
 
@@ -167,7 +167,7 @@ store_travis_cache() {
 
     cd ${SITE_DIR}
 
-    echo "travis_fold:end:store_travis_cache_$1"
+    echo "travis_fold:end:__store_travis_cache_$1"
 }
 
 #####
@@ -270,9 +270,9 @@ travis_for_separated_site_repository() {
 
     common_commit=$( (cd site_common; git rev-parse HEAD) )
 
-    echo "travis_fold:start:check_travis_cache_tested"
-    tested=$(check_travis_cache tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit})
-    echo "travis_fold:end:check_travis_cache_tested"
+    echo "travis_fold:start:__check_travis_cache_tested"
+    tested=$(__check_travis_cache tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit})
+    echo "travis_fold:end:__check_travis_cache_tested"
 
     if [ -n "$tested" ]; then
     echo "This commit has previously been tested successfully. Not testing again."
@@ -282,7 +282,7 @@ travis_for_separated_site_repository() {
     echo "$tested"
     else
 
-    ensure_reqs_and_decrypt
+    __ensure_reqs_and_decrypt
 
     make travis-tests
 
@@ -290,7 +290,7 @@ travis_for_separated_site_repository() {
     # Now that testing has completed successfully, add a new
     # commit to the cache repository and push it out.
     ####
-    store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
+    __store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
     fi
 
     ####
@@ -312,9 +312,9 @@ travis_for_separated_site_repository() {
         ;;
     esac
 
-    echo "travis_fold:start:check_travis_cache_deployed"
-    deployed=$(check_travis_cache deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit})
-    echo "travis_fold:end:check_travis_cache_deployed"
+    echo "travis_fold:start:__check_travis_cache_deployed"
+    deployed=$(__check_travis_cache deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit})
+    echo "travis_fold:end:__check_travis_cache_deployed"
 
     if [ -n "$deployed" ]; then
     echo "This commit has been previously deployed successfully. Not deploying again."
@@ -337,7 +337,7 @@ travis_for_separated_site_repository() {
     return
     fi
 
-    ensure_reqs_and_decrypt
+    __ensure_reqs_and_decrypt
 
     echo "travis_fold:start:deploy"
     make deploy-${mode} DEPLOY_TAG=${TRAVIS_TAG} DEPLOY_COMMON_TAG=${SITE}-${TRAVIS_TAG}
@@ -361,7 +361,7 @@ travis_for_separated_site_repository() {
     git clone git@github.com:nimbis/sites ./.sites-clone
     cd ./.sites-clone
 
-    configure_git_authorship
+    __configure_git_authorship
 
     git tag -a -m "Site $SITE release version $SITE_VERSION" $SITE-v$SITE_VERSION production-$SITE
     git push origin $SITE-v$SITE_VERSION
@@ -370,7 +370,7 @@ travis_for_separated_site_repository() {
     cd ${SITE_DIR}
     fi
 
-    store_travis_cache $NIFTY_TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
+    __store_travis_cache $NIFTY_TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
 }
 
 #####
@@ -407,7 +407,7 @@ verify_coverage_improvement() {
         return 1
     fi
 
-    master_coverage=$(check_travis_cache coverage ${TRAVIS_REPO_SLUG} master)
+    master_coverage=$(__check_travis_cache coverage ${TRAVIS_REPO_SLUG} master)
 
     # If this repository has no coverage information saved for the master branch...
     if [ -z "$master_coverage" ]; then
@@ -440,7 +440,7 @@ verify_coverage_improvement() {
     # the master branch and this is not a pull request, update the coverage
     # figure stored in the cache if necessary.
     if [[ "$TRAVIS_BRANCH" = "master"  && "$TRAVIS_PULL_REQUEST" = "false" ]]; then
-        store_travis_cache $current_coverage coverage ${TRAVIS_REPO_SLUG} master
+        __store_travis_cache $current_coverage coverage ${TRAVIS_REPO_SLUG} master
         echo "Coverage cache updated successfully."
         echo ""
     fi
@@ -451,5 +451,5 @@ verify_coverage_improvement() {
 # The only thing this script immediately does when sourced is call __init_travis_cache
 # to initialize our git-repository-based travis cache.
 echo "travis_fold:start:init_travis_cache"
-init_travis_cache
+__init_travis_cache
 echo "travis_fold:end:init_travis_cache"
