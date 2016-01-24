@@ -436,10 +436,12 @@ verify_coverage_improvement() {
         echo ""
     fi
 
-    # Coverage has potentially increased. If Travis reports this branch as,
-    # the master branch and this is not a pull request, update the coverage
-    # figure stored in the cache if necessary.
-    if [[ "$TRAVIS_BRANCH" = "master"  && "$TRAVIS_PULL_REQUEST" = "false" ]]; then
+    # Coverage has increased. If Travis reports this branch as the master
+    # branch and this is not a pull request, update the coverage figure
+    # stored in the cache.
+    if [[ $current_coverage -gt $master_coverage &&
+          "$TRAVIS_BRANCH" = "master" &&
+          "$TRAVIS_PULL_REQUEST" = "false" ]]; then
         __store_travis_cache $current_coverage coverage ${TRAVIS_REPO_SLUG} master
         echo "Coverage cache updated successfully."
         echo ""
