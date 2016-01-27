@@ -476,8 +476,8 @@ test_and_tag() {
     git push origin travis-tested
 }
 
-# The only thing this script immediately does when sourced is call __init_travis_cache
-# to initialize our git-repository-based travis cache.
+# The only thing this script immediately does when sourced is call
+# __init_travis_cache to initialize our git-repository-based travis cache.
 echo "travis_fold:start:init_travis_cache"
 __init_travis_cache
 echo "travis_fold:end:init_travis_cache"
