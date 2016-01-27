@@ -457,9 +457,10 @@ verify_coverage_improvement() {
 test_and_tag() {
     make test
 
-    if [ "$TRAVIS_BRANCH" != "master" ]; then
-        # no tagging unless we are the master branch
-        return;
+    if [[ "$TRAVIS_BRANCH" != "master" ||
+            "$TRAVIS_PULL_REQUEST" = "true" ]]; then
+        # no tagging unless we are the master branch and this is not a PR
+        return
     fi
 
     __configure_git_authorship
