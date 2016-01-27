@@ -462,6 +462,8 @@ test_and_tag() {
         return;
     fi
 
+    __configure_git_authorship
+
     # if test succeeded delete the current travis-tested tag
     if [[ $(git tag -l | grep travis-tested) ]]; then
         git push origin :travis-tested
