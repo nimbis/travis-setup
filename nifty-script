@@ -450,8 +450,28 @@ verify_coverage_improvement() {
     return
 }
 
-# The only thing this script immediately does when sourced is call __init_travis_cache
-# to initialize our git-repository-based travis cache.
+#####
+# Run tests and create a travis-tested tag if it passes. Otherwise fail the
+# build.
+#####
+test_and_tag() {
+    make test
+
+    if [[ "$TRAVIS_BRANCH" != "master" ||
+          "$TRAVIS_PULL_REQUEST" = "true" ]]; then
+        # no tagging unless we are the master branch and this is not a PR
+        return
+    fi
+
+    __configure_git_authorship
+
+    # tag the current commit
+    git tag -m "Travis tested master" travis-tested
+    git push origin +travis-tested
+}
+
+# The only thing this script immediately does when sourced is call
+# __init_travis_cache to initialize our git-repository-based travis cache.
 echo "travis_fold:start:init_travis_cache"
 __init_travis_cache
 echo "travis_fold:end:init_travis_cache"
