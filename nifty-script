@@ -466,7 +466,7 @@ test_and_tag() {
     __configure_git_authorship
 
     # tag the current commit
-    git tag -m "Travis tested master" travis-tested
+    git tag -fm "Travis tested master" travis-tested
     git push origin +travis-tested
 }
 
