@@ -218,6 +218,12 @@ travis_for_sites() {
 
     echo "travis_fold:start:subtree_pushes"
     prepare_args=$(./prepare-deploy "$mode" "$SITE" travis-${TRAVIS_BUILD_NUMBER})
+
+    # The output of the prepare-deploy script is a short list of
+    # space-separated NAME=VALUE pairs suitable for putting straight
+    # onto a command line. We want to get those values into the
+    # current environment, so we replace the spaces with semicolons
+    # and then "eval" the assignments.
     eval ${prepare_args/ /;}
     echo "travis_fold:end:subtree_pushes"
 
