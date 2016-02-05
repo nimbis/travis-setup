@@ -221,26 +221,6 @@ travis_for_sites() {
     eval ${prepare_args/ /;}
     echo "travis_fold:end:subtree_pushes"
 
-    cd ./.subtree-clones/site-${SITE};
-    deploy_commit=$(git rev-parse ${DEPLOY_TAG})
-
-    # Update site-$SITE master branch whenever pushing to "sites" master
-    if [ "$TRAVIS_BRANCH" = "master" ]; then
-    git merge ${DEPLOY_TAG}
-    git push origin master
-    fi
-    cd ../..
-
-    cd ./.subtree-clones/site-common
-    deploy_common_commit=$(git rev-parse ${DEPLOY_COMMON_TAG})
-
-    # Update site-common master branch whenever pushing to "sites" master
-    if [ "$TRAVIS_BRANCH" = "master" ]; then
-    git merge ${DEPLOY_COMMON_TAG}
-    git push origin master
-    fi
-    cd ../..
-
     echo "Pushed tag $DEPLOY_TAG to site-$SITE and $DEPLOY_COMMON_TAG to site-common"
     echo "See the corresponding Travis run in site-$SITE for testing results."
 }
