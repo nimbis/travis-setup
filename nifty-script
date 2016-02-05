@@ -233,8 +233,9 @@ travis_for_sites() {
 
 #####
 # For a push to one of the separated site-$SITE repositories, we
-# actual perform lettuce tests. And, if the tag that was pushed is
-# named "staging-*" then we also deploy to the staging server.
+# actually perform lettuce tests. And, if the tag that was pushed is
+# named "master" or "production-*" then we also deploy to the either
+# the staging or production server.
 #####
 travis_for_separated_site_repository() {
 
@@ -280,19 +281,19 @@ travis_for_separated_site_repository() {
     fi
 
     ####
-    # If the tag pushed is named "staging-*" or "production-*" then we
+    # If the tag pushed is named "master" or "production-*" then we
     # need to deploy. Otherwise, we're done here now that we've
     # tested.
     ####
     case "${TRAVIS_TAG}" in
-    staging-*)
+    master)
         mode="staging"
         ;;
     production-*)
         mode="production"
         ;;
     *)
-        echo "Travis tag (${TRAVIS_TAG}) not a \"staging-\" nor a"
+        echo "Travis tag (${TRAVIS_TAG}) not a \"master\" nor a"
         echo "\"production-\" tag so not deploying."
         return;
         ;;
