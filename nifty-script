@@ -35,24 +35,14 @@ __configure_git_authorship() {
 __ensure_reqs_and_decrypt() {
     if [ "$reqs_and_decrypt" = "false" ]; then
 
-    echo "travis_fold:start:npm"
-    sh -e /etc/init.d/xvfb start
-    npm install -g grunt-cli
-    npm install -g git-encrypt
-    npm install -g bower
-    echo "travis_fold:end:npm"
+        echo "travis_fold:start:npm"
+        sh -e /etc/init.d/xvfb start
+        npm install -g grunt-cli
+        npm install -g git-encrypt
+        npm install -g bower
+        echo "travis_fold:end:npm"
 
-    echo "travis_fold:start:decrypt"
-    git config filter.encrypt.smudge "gitcrypt smudge"
-    git config filter.encrypt.clean "gitcrypt clean"
-    git config diff.encrypt.textconv "gitcrypt diff"
-    git config gitcrypt.salt ${GITCRYPT_SALT}
-    git config gitcrypt.pass ${GITCRYPT_PASS}
-    make decrypt
-
-    if [ -e "site_common" ]; then
-        cd site_common
-
+        echo "travis_fold:start:decrypt"
         git config filter.encrypt.smudge "gitcrypt smudge"
         git config filter.encrypt.clean "gitcrypt clean"
         git config diff.encrypt.textconv "gitcrypt diff"
@@ -60,16 +50,26 @@ __ensure_reqs_and_decrypt() {
         git config gitcrypt.pass ${GITCRYPT_PASS}
         make decrypt
 
-        cd ${SITE_DIR}
-    fi
+        if [ -e "site_common" ]; then
+            cd site_common
 
-    echo "travis_fold:end:decrypt"
+            git config filter.encrypt.smudge "gitcrypt smudge"
+            git config filter.encrypt.clean "gitcrypt clean"
+            git config diff.encrypt.textconv "gitcrypt diff"
+            git config gitcrypt.salt ${GITCRYPT_SALT}
+            git config gitcrypt.pass ${GITCRYPT_PASS}
+            make decrypt
 
-    echo "travis_fold:start:reqs"
-    make reqs
-    echo "travis_fold:end:reqs"
+            cd ${SITE_DIR}
+        fi
 
-    reqs_and_decrypt="true"
+        echo "travis_fold:end:decrypt"
+
+        echo "travis_fold:start:reqs"
+        make reqs
+        echo "travis_fold:end:reqs"
+
+        reqs_and_decrypt="true"
     fi
 }
 
@@ -204,11 +204,11 @@ travis_for_sites() {
         ;;
     production-*)
         if [ "$TRAVIS_BRANCH" = "production-$SITE" ]; then
-        mode="production"
+            mode="production"
         else
-        echo "This tag $TRAVIS_BRANCH was not intended for site $SITE"
-        echo "Exiting"
-        return
+            echo "This tag $TRAVIS_BRANCH was not intended for site $SITE"
+            echo "Exiting"
+            return
         fi
         ;;
     *)
@@ -261,22 +261,22 @@ travis_for_separated_site_repository() {
     echo "travis_fold:end:__check_travis_cache_tested"
 
     if [ -n "$tested" ]; then
-    echo "This commit has previously been tested successfully. Not testing again."
-    echo ""
-    echo "The report from the previous run can be seen here:"
-    echo ""
-    echo "$tested"
+        echo "This commit has previously been tested successfully. Not testing again."
+        echo ""
+        echo "The report from the previous run can be seen here:"
+        echo ""
+        echo "$tested"
     else
 
-    __ensure_reqs_and_decrypt
+        __ensure_reqs_and_decrypt
 
-    make travis-tests
+        make travis-tests
 
-    #####
-    # Now that testing has completed successfully, add a new
-    # commit to the cache repository and push it out.
-    ####
-    __store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
+        #####
+        # Now that testing has completed successfully, add a new
+        # commit to the cache repository and push it out.
+        ####
+        __store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
     fi
 
     ####
@@ -303,24 +303,24 @@ travis_for_separated_site_repository() {
     echo "travis_fold:end:__check_travis_cache_deployed"
 
     if [ -n "$deployed" ]; then
-    echo "This commit has been previously deployed successfully. Not deploying again."
-    echo ""
-    echo "The report from the previous deploy run can be seen here:"
-    echo ""
-    echo "$deployed"
-    return
+        echo "This commit has been previously deployed successfully. Not deploying again."
+        echo ""
+        echo "The report from the previous deploy run can be seen here:"
+        echo ""
+        echo "$deployed"
+        return
     fi
 
     if [ "$SITE" = "tss" ]; then
-    echo "Travis is not authorized to deploy to the tss site."
-    echo ""
+        echo "Travis is not authorized to deploy to the tss site."
+        echo ""
         echo "A developer with the necessary credentials will need to manually"
-    echo "deploy with a command such as:"
-    echo ""
-    echo "  make deploy-${mode} SITE=tss"
-    echo ""
-    echo "run from the top-level of the 'sites' repository."
-    return
+        echo "deploy with a command such as:"
+        echo ""
+        echo "  make deploy-${mode} SITE=tss"
+        echo ""
+        echo "run from the top-level of the 'sites' repository."
+        return
     fi
 
     __ensure_reqs_and_decrypt
@@ -344,16 +344,16 @@ travis_for_separated_site_repository() {
 
     SITE_VERSION=$(python ./setup.py --version)
     if [ $mode = "production" ]; then
-    git clone git@github.com:nimbis/sites ./.sites-clone
-    cd ./.sites-clone
+        git clone git@github.com:nimbis/sites ./.sites-clone
+        cd ./.sites-clone
 
-    __configure_git_authorship
+        __configure_git_authorship
 
-    git tag -a -m "Site $SITE release version $SITE_VERSION" $SITE-v$SITE_VERSION production-$SITE
-    git push origin $SITE-v$SITE_VERSION
-    git push origin :production-$SITE
+        git tag -a -m "Site $SITE release version $SITE_VERSION" $SITE-v$SITE_VERSION production-$SITE
+        git push origin $SITE-v$SITE_VERSION
+        git push origin :production-$SITE
 
-    cd ${SITE_DIR}
+        cd ${SITE_DIR}
     fi
 
     __store_travis_cache $NIFTY_TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
