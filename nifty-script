@@ -66,7 +66,8 @@ __ensure_reqs_and_decrypt() {
         echo "travis_fold:end:decrypt"
 
         echo "travis_fold:start:reqs"
-        make reqs
+        make reqs > /dev/null
+        pip freeze
         echo "travis_fold:end:reqs"
 
         reqs_and_decrypt="true"
