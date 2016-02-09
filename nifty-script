@@ -255,7 +255,27 @@ travis_for_separated_site_repository() {
     phantomjs -v
     echo "travis_fold:end:phantom_version"
 
-    common_commit=$( (cd site_common; git rev-parse HEAD) )
+    #####
+    # Clone the site-common repository in the expected location
+    # and capture its commit ID. For testing site-foo "master"
+    # we use the master commit of site-common. For anything else
+    # (such as feature-travis-XYZ) we find a matching common tag.
+    #####
+    cd ..
+    git clone git@github.com:nimbis/site-common.git common
+    cd common
+
+    if [ -n "${TRAVIS_TAG}" ]; then
+        git fetch --tags
+        git checkout ${SITE}-${TRAVIS_TAG}
+    fi
+    
+    common_commit=$(git rev-parse HEAD)
+    cd ../site-${SITE}
+
+    #####
+    # Check cache and don't repeat tests if succesfully tested before
+    #####
 
     echo "travis_fold:start:__check_travis_cache_tested"
     tested=$(__check_travis_cache tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit})
