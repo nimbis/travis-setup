@@ -386,12 +386,17 @@ travis_for_separated_site_repository() {
 # of code test coverage, we fail the build.
 #####
 verify_coverage_improvement() {
-    if hash coverage 2> /dev/null; then
-        make coverage
+    # Don't re-generate coverage if it already exists
+    if [ -e ./.coverage ]; then
+        echo "Found existing coverage results. Not regenerating."
     else
-        echo "Coverage testing cannot proceed because the coverage command could not be found."
-        echo ""
-        return 1
+        if hash coverage 2> /dev/null; then
+            make coverage
+        else
+            echo "Coverage testing cannot proceed because the coverage command could not be found."
+            echo ""
+            return 1
+        fi
     fi
 
     # Print the coverage report, get the last line containing the coverage totals,
