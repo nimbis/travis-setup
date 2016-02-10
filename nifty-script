@@ -464,6 +464,11 @@ verify_coverage_improvement() {
 #####
 # Run tests and create a travis-tested tag if it passes. Otherwise fail the
 # build.
+#
+# NOTE: There is obvious code duplication between test_and_tag() here
+# and nifty_test_app() below. The plan is to eliminate the
+# test_and_tag() function once all apps have been migrated to call
+# nifty_test_app() instead.
 #####
 test_and_tag() {
     make test
@@ -477,6 +482,46 @@ test_and_tag() {
     __configure_git_authorship
 
     # tag the current commit
+    git tag -fm "Travis tested master" travis-tested
+    git push origin +travis-tested
+}
+
+#####
+# Perform all necessary testing for an app
+#
+# This function assumes the following:
+#
+#	1. The app being tested has a "make travis-tests" target
+#	2. Either of the following are true:
+#		a. The "make travis-tests" target generates .coverage
+#	     or b. The app has a "make coverage" target (in this case
+#                  the app's test suite will be run twice.
+#
+# When this function is complete, if the tests passed and coverage was
+# at least the same or better, a new "travis-tested" tag will be
+# pushed out to the app's repository.
+#####
+nifty_test_app() {
+    make travis-tests
+
+    verify_coverage_improvement
+
+    # Do not tag unless we are the master branch and this is not a PR
+    if [[ "$TRAVIS_BRANCH" != "master" ||
+          "$TRAVIS_PULL_REQUEST" = "true" ]]; then
+        return
+    fi
+
+    # Also, do not tag if this is not a private repository. We detect
+    # private repositories by looking for a "source_key" to be defined
+    # in the .travis.yml file
+    if ! grep -q ^source_key .travis.yml; then
+        return
+    fi
+
+    __configure_git_authorship
+
+    # Tag the current commit
     git tag -fm "Travis tested master" travis-tested
     git push origin +travis-tested
 }
