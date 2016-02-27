@@ -345,8 +345,15 @@ travis_for_separated_site_repository() {
 
     __ensure_reqs_and_decrypt
 
+    # Note: The -vv below is important for correctness. We have some
+    # long-running ansible tasks, (which are fired off asynchronously
+    # with periodic polling). The -vv here means that each poll
+    # attempt will produce some output. Without that, Travis might
+    # give up on the long tasks, (which it does if 10 minutes go by
+    # without any output).
+    
     echo "travis_fold:start:deploy"
-    make deploy-${mode} DEPLOY_TAG=${TRAVIS_TAG} DEPLOY_COMMON_TAG=${SITE}-${TRAVIS_TAG}
+    ANSIBLE_FLAGS="-vv" make deploy-${mode} DEPLOY_TAG=${TRAVIS_TAG} DEPLOY_COMMON_TAG=${SITE}-${TRAVIS_TAG}
     echo "travis_fold:end:deploy"
 
     #####
