@@ -227,8 +227,13 @@ travis_for_sites() {
     eval ${prepare_args/ /;}
     echo "travis_fold:end:subtree_pushes"
 
-    echo "Pushed tag $DEPLOY_TAG to site-$SITE and $DEPLOY_COMMON_TAG to site-common"
-    echo "See the corresponding Travis run in site-$SITE for testing results."
+    if [ "$SITE" = "platform" ]; then
+        echo "Pushed tag $PLATFORM_TAG to nimbis-platform"
+        echo " See the corresponding Travis run in nimbis-platform for testing results."
+    else
+        echo "Pushed tag $DEPLOY_TAG to site-$SITE and $DEPLOY_COMMON_TAG to site-common"
+        echo "See the corresponding Travis run in site-$SITE for testing results."
+    fi
 }
 
 #####
