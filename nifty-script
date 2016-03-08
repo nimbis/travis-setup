@@ -268,7 +268,7 @@ travis_for_separated_site_repository() {
         git fetch --tags
         git checkout ${SITE}-${TRAVIS_TAG}
     fi
-    
+
     common_commit=$(git rev-parse HEAD)
     cd ../site-${SITE}
 
@@ -351,7 +351,7 @@ travis_for_separated_site_repository() {
     # attempt will produce some output. Without that, Travis might
     # give up on the long tasks, (which it does if 10 minutes go by
     # without any output).
-    
+
     echo "travis_fold:start:deploy"
     ANSIBLE_FLAGS="-vv" make deploy-${mode} DEPLOY_TAG=${TRAVIS_TAG} DEPLOY_COMMON_TAG=${SITE}-${TRAVIS_TAG}
     echo "travis_fold:end:deploy"
@@ -384,6 +384,62 @@ travis_for_separated_site_repository() {
     fi
 
     __store_travis_cache $NIFTY_TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
+}
+
+#####
+# For testing of 'platform', we simply want to run a couple of test
+# targets within the platform directory. We don't have to do any of
+# the complicated pushing of tags to separated repositories like we
+# do for any value of $SITE other than 'platform'.
+####
+travis_for_separated_platform() {
+
+    echo "=================== Running Travis tests for sites/platform ==================="
+
+    #####
+    # Clone the site-common repository in the expected location
+    # and capture its commit ID. For testing site-foo "master"
+    # we use the master commit of site-common. For anything else
+    # (such as feature-travis-XYZ) we find a matching common tag.
+    #####
+    cd ..
+    git clone git@github.com:nimbis/site-common.git common
+    cd common
+
+    if [ -n "${TRAVIS_TAG}" ]; then
+        git fetch --tags
+        git checkout ${SITE}-${TRAVIS_TAG}
+    fi
+
+    common_commit=$(git rev-parse HEAD)
+    cd ../nimbis-platform
+
+    #####
+    # Check cache and don't repeat tests if succesfully tested before
+    #####
+
+    echo "travis_fold:start:__check_travis_cache_tested"
+    tested=$(__check_travis_cache tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit})
+    echo "travis_fold:end:__check_travis_cache_tested"
+
+    if [ -n "$tested" ]; then
+        echo "This commit has previously been tested successfully. Not testing again."
+        echo ""
+        echo "The report from the previous run can be seen here:"
+        echo ""
+        echo "$tested"
+    else
+        __ensure_reqs_and_decrypt
+
+        make piprot
+        make test
+
+        #####
+        # Now that testing has completed successfully, add a new
+        # commit to the cache repository and push it out.
+        ####
+        __store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
+    fi
 }
 
 #####
