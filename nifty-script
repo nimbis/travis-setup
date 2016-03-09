@@ -171,15 +171,37 @@ __store_travis_cache() {
 }
 
 #####
+# Run tests for the platform subtree.
+#####
+__travis_for_platform() {
+    cd platform
+
+    __ensure_reqs_and_decrypt
+
+    make piprot
+    make test
+}
+
+#####
 # For a push to the sites repository, we push out corresponding
 # commits (along with tags) to the site-$SITE repository as well as
 # site-common. Those pushes will then result in testing and/or
 # deployment from within the site-$SITE repository, so there's nothing
 # else we need to do here, (no lettuce tests, no deployment, etc.)
+#
+# If SITE=platform, which indicates a nimbis-platform build, we simply
+# test in house.
 #####
 travis_for_sites() {
 
     echo "=================== Running Travis tests for site $SITE ==================="
+
+    # If this is for platform then call the testing function and return.
+
+    if [ "$SITE" = "platform" ]; then
+        __travis_for_platform
+        return
+    fi
 
     # If this is a commit being pushed to the master branch, then
     # we want to test and deploy to staging.
@@ -268,7 +290,7 @@ travis_for_separated_site_repository() {
         git fetch --tags
         git checkout ${SITE}-${TRAVIS_TAG}
     fi
-    
+
     common_commit=$(git rev-parse HEAD)
     cd ../site-${SITE}
 
@@ -351,7 +373,7 @@ travis_for_separated_site_repository() {
     # attempt will produce some output. Without that, Travis might
     # give up on the long tasks, (which it does if 10 minutes go by
     # without any output).
-    
+
     echo "travis_fold:start:deploy"
     ANSIBLE_FLAGS="-vv" make deploy-${mode} DEPLOY_TAG=${TRAVIS_TAG} DEPLOY_COMMON_TAG=${SITE}-${TRAVIS_TAG}
     echo "travis_fold:end:deploy"
