@@ -232,6 +232,11 @@ travis_for_sites() {
             echo "Exiting"
             return
         fi
+        if [ "$SITE" = "tss" ]; then
+            echo "Travis is not authorized to deploy to the tss site."
+            echo "Exiting"
+            return
+        fi
         ;;
     *)
         mode="feature"
