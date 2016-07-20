@@ -493,8 +493,10 @@ verify_coverage_improvement() {
 #
 # This function assumes the following:
 #
-#	1. The app being tested has a "make travis-tests" target
-#	2. Either of the following are true:
+#
+#	1. The app being tested has a "make reqs" target
+#	2. The app being tested has a "make travis-tests" target
+#	3. Either of the following are true:
 #		a. The "make travis-tests" target generates .coverage
 #	     or b. The app has a "make coverage" target (in this case
 #                  the app's test suite will be run twice.
@@ -504,6 +506,17 @@ verify_coverage_improvement() {
 # pushed out to the app's repository.
 #####
 nifty_test_app() {
+
+    # Travis appears to have an ancient setuptools installed as part
+    # of its virtualenv. Recent versions of html5lib (at least as of
+    # version 0.999999999) require at least version 18.5 or above for
+    # setuptools. But since this isn't an expressed requirement, we
+    # need to manually upgrade setuptools rather than just trusting
+    # pip to do it for us as part of "make reqs"
+    pip install --upgrade setuptools
+
+    make reqs
+
     make travis-tests
 
     verify_coverage_improvement
