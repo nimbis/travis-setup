@@ -32,6 +32,17 @@ __configure_git_authorship() {
     git config user.name "${TRAVIS_REPO_SLUG} travis-metadata-script"
 }
 
+#####
+# Upgrade to latest pip
+#
+# Travis has pip 6.0.7 installed by default, which does not know how
+# to install a local version of a package (such as
+# django-shop==0.2.0+nimbis.1).
+#####
+__ensure_latest_pip() {
+    pip install --upgrade pip
+}
+
 __ensure_reqs_and_decrypt() {
     if [ "$reqs_and_decrypt" = "false" ]; then
 
@@ -66,6 +77,7 @@ __ensure_reqs_and_decrypt() {
         echo "travis_fold:end:decrypt"
 
         echo "travis_fold:start:reqs"
+        __ensure_latest_pip
         make reqs
         echo "travis_fold:end:reqs"
 
@@ -514,6 +526,8 @@ nifty_test_app() {
     # need to manually upgrade setuptools rather than just trusting
     # pip to do it for us as part of "make reqs"
     pip install --upgrade setuptools
+
+    __ensure_latest_pip
 
     make reqs
 
