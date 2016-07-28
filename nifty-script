@@ -10,6 +10,11 @@ NIFTY_TRAVIS_CACHE_DIR=./.travis-cache
 # like when using a public cache repository.
 NIFTY_TRAVIS_CACHE_REPO=${NIFTY_TRAVIS_CACHE_REPO:=git@github.com:nimbis/travis-cache}
 
+# Primary key for travis cache. For this we use the TRAVIS_REPO_SLUG
+# and then append the value of $SITE (if set) since we do multiple
+# tests for different sites within the same repository.
+CACHE_REPO_KEY=${TRAVIS_REPO_SLUG}${SITE:+-}${SITE}
+
 # Absolute path for original clone of repository (so always easy to return to)
 SITE_DIR=$(pwd)
 
@@ -60,19 +65,6 @@ __ensure_reqs_and_decrypt() {
         git config gitcrypt.salt ${GITCRYPT_SALT}
         git config gitcrypt.pass ${GITCRYPT_PASS}
         make decrypt
-
-        if [ -e "site_common" ]; then
-            cd site_common
-
-            git config filter.encrypt.smudge "gitcrypt smudge"
-            git config filter.encrypt.clean "gitcrypt clean"
-            git config diff.encrypt.textconv "gitcrypt diff"
-            git config gitcrypt.salt ${GITCRYPT_SALT}
-            git config gitcrypt.pass ${GITCRYPT_PASS}
-            make decrypt
-
-            cd ${SITE_DIR}
-        fi
 
         echo "travis_fold:end:decrypt"
 
@@ -255,68 +247,23 @@ travis_for_sites() {
         ;;
     esac
 
-    echo "travis_fold:start:subtree_pushes"
-    prepare_args=$(./prepare-deploy "$mode" "$SITE" travis-${TRAVIS_BUILD_NUMBER})
-
-    # The output of the prepare-deploy script is a short list of
-    # space-separated NAME=VALUE pairs suitable for putting straight
-    # onto a command line. We want to get those values into the
-    # current environment, so we replace the spaces with semicolons
-    # and then "eval" the assignments.
-    eval ${prepare_args/ /;}
-    echo "travis_fold:end:subtree_pushes"
-
-    echo "Pushed tag $DEPLOY_TAG to site-$SITE and $DEPLOY_COMMON_TAG to site-common"
-    echo "See the corresponding Travis run in site-$SITE for testing results."
-}
-
-#####
-# For a push to one of the separated site-$SITE repositories, we
-# actual perform lettuce tests. And, if the tag that was pushed is
-# named "staging-*" then we also deploy to the staging server.
-#####
-travis_for_separated_site_repository() {
-
-    # Set up the Travis build environment
-    # Install PhantomJS.  Opting to place in the top level contact so the exports
-    # are handled correctly and we are in the top level directory.
-    mkdir nimbis-bin
-    mkdir nimbis-lib
-    export PATH=$PWD/nimbis-bin:$PATH
-    export LD_LIBRARY_PATH=$PWD/nimbis-lib:$LD_LIBRARY_PATH
-    wget https://s3.amazonaws.com/nimbis-phantomjs/phantomjs -O nimbis-bin/phantomjs
-    wget https://s3.amazonaws.com/nimbis-phantomjs/libicui18n.so.52 -O nimbis-lib/libicui18n.so.52
-    wget https://s3.amazonaws.com/nimbis-phantomjs/libicuuc.so.52 -O nimbis-lib/libicuuc.so.52
-    wget https://s3.amazonaws.com/nimbis-phantomjs/libicudata.so.52 -O nimbis-lib/libicudata.so.52
-    chmod a+x nimbis-bin/phantomjs
-    echo "travis_fold:start:phantom_version"
-    phantomjs -v
-    echo "travis_fold:end:phantom_version"
-
     #####
-    # Clone the site-common repository in the expected location
-    # and capture its commit ID. For testing site-foo "master"
-    # we use the master commit of site-common. For anything else
-    # (such as feature-travis-XYZ) we find a matching common tag.
+    # Nuke all sites other than the one under test
+    # (This avoids any accidental inter-site dependencies)
     #####
-    cd ..
-    git clone git@github.com:nimbis/site-common.git common
-    cd common
 
-    if [ -n "${TRAVIS_TAG}" ]; then
-        git fetch --tags
-        git checkout ${SITE}-${TRAVIS_TAG}
-    fi
-
-    common_commit=$(git rev-parse HEAD)
-    cd ../site-${SITE}
+    for site in awesim nimbisservices smlc tss; do
+        if [ "$site" != "$SITE" ]; then
+            rm -rf $site
+        fi
+    done
 
     #####
     # Check cache and don't repeat tests if succesfully tested before
     #####
 
     echo "travis_fold:start:__check_travis_cache_tested"
-    tested=$(__check_travis_cache tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit})
+    tested=$(__check_travis_cache tested ${CACHE_REPO_KEY} ${TRAVIS_COMMIT} ${common_commit})
     echo "travis_fold:end:__check_travis_cache_tested"
 
     if [ -n "$tested" ]; then
@@ -335,7 +282,7 @@ travis_for_separated_site_repository() {
         # Now that testing has completed successfully, add a new
         # commit to the cache repository and push it out.
         ####
-        __store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${TRAVIS_REPO_SLUG} ${TRAVIS_COMMIT} ${common_commit}
+        __store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${CACHE_REPO_KEY} ${TRAVIS_COMMIT} ${common_commit}
     fi
 
     ####
@@ -358,7 +305,7 @@ travis_for_separated_site_repository() {
     esac
 
     echo "travis_fold:start:__check_travis_cache_deployed"
-    deployed=$(__check_travis_cache deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit})
+    deployed=$(__check_travis_cache deployed ${CACHE_REPO_KEY} ${mode} ${TRAVIS_COMMIT} ${common_commit})
     echo "travis_fold:end:__check_travis_cache_deployed"
 
     if [ -n "$deployed" ]; then
@@ -403,19 +350,15 @@ travis_for_separated_site_repository() {
 
     SITE_VERSION=$(python ./setup.py --version)
     if [ $mode = "production" ]; then
-        git clone git@github.com:nimbis/sites ./.sites-clone
-        cd ./.sites-clone
 
         __configure_git_authorship
 
         git tag -a -m "Site $SITE release version $SITE_VERSION" $SITE-v$SITE_VERSION production-$SITE
         git push origin $SITE-v$SITE_VERSION
         git push origin :production-$SITE
-
-        cd ${SITE_DIR}
     fi
 
-    __store_travis_cache $NIFTY_TRAVIS_JOB_URL deployed ${TRAVIS_REPO_SLUG} ${mode} ${TRAVIS_COMMIT} ${common_commit}
+    __store_travis_cache $NIFTY_TRAVIS_JOB_URL deployed ${CACHE_REPO_KEY} ${mode} ${TRAVIS_COMMIT} ${common_commit}
 }
 
 #####
@@ -457,7 +400,7 @@ verify_coverage_improvement() {
         return 1
     fi
 
-    master_coverage=$(__check_travis_cache coverage ${TRAVIS_REPO_SLUG} master)
+    master_coverage=$(__check_travis_cache coverage ${CACHE_REPO_KEY} master)
 
     # If this repository has no coverage information saved for the master branch...
     if [ -z "$master_coverage" ]; then
@@ -492,7 +435,7 @@ verify_coverage_improvement() {
     if [[ $current_coverage -gt $master_coverage &&
           "$TRAVIS_BRANCH" = "master" &&
           "$TRAVIS_PULL_REQUEST" = "false" ]]; then
-        __store_travis_cache $current_coverage coverage ${TRAVIS_REPO_SLUG} master
+        __store_travis_cache $current_coverage coverage ${CACHE_REPO_KEY} master
         echo "Coverage cache updated successfully."
         echo ""
     fi
