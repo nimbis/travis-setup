@@ -286,23 +286,13 @@ travis_for_sites() {
     fi
 
     ####
-    # If the tag pushed is named "staging-*" or "production-*" then we
-    # need to deploy. Otherwise, we're done here now that we've
-    # tested.
+    # If this is a feature branch, then we don't deploy.
     ####
-    case "${TRAVIS_TAG}" in
-    staging-*)
-        mode="staging"
-        ;;
-    production-*)
-        mode="production"
-        ;;
-    *)
-        echo "Travis tag (${TRAVIS_TAG}) not a \"staging-\" nor a"
+    if [ "$mode" = "feature" ]; then
+        echo "Travis branch (${TRAVIS_BRANCH}) not a \"master\" nor a"
         echo "\"production-\" tag so not deploying."
         return;
-        ;;
-    esac
+    fi
 
     echo "travis_fold:start:__check_travis_cache_deployed"
     deployed=$(__check_travis_cache deployed ${CACHE_REPO_KEY} ${mode} ${TRAVIS_COMMIT} ${common_commit})
