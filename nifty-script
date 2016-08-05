@@ -322,7 +322,8 @@ travis_for_sites() {
     __ensure_reqs_and_decrypt
 
     echo "travis_fold:start:deploy"
-    make deploy-${mode} DEPLOY_TAG=${TRAVIS_TAG} DEPLOY_COMMON_TAG=${SITE}-${TRAVIS_TAG}
+    deploy_args=$(./prepare-deploy ${mode} ${SITE} ${TRAVIS_BUILD_NUMBER})
+    make -C ${SITE} deploy-${mode} ${deploy_args}
     echo "travis_fold:end:deploy"
 
     #####
