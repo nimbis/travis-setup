@@ -339,11 +339,11 @@ travis_for_sites() {
     #    and push it out.
     ####
 
-    SITE_VERSION=$(python ./setup.py --version)
     if [ $mode = "production" ]; then
 
         __configure_git_authorship
 
+        SITE_VERSION=$(cd ${SITE}; python ./setup.py --version)
         git tag -a -m "Site $SITE release version $SITE_VERSION" $SITE-v$SITE_VERSION production-$SITE
         git push origin $SITE-v$SITE_VERSION
         git push origin :production-$SITE
