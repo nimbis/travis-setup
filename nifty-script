@@ -152,7 +152,7 @@ __store_travis_cache() {
 
     cd ${NIFTY_TRAVIS_CACHE_DIR}
 
-    url="$1"
+    item="$1"
     shift
 
     echo "travis_fold:start:__store_travis_cache_$1"
@@ -161,10 +161,10 @@ __store_travis_cache() {
 
     mkdir -p $(dirname "$path")
 
-    echo "$url" > "$path"
+    echo "$item" > "$path"
 
     git add "$path"
-    git commit -a -m "Add item to travis cache" -m "Path of $path" -m "URL of $url"
+    git commit -a -m "Add item to travis cache" -m "Path of $path" -m "Item of $item"
 
     # If the first push fails, pull then push again. If that fails too, give up.
     git push origin master || git pull --no-edit && git push origin master || true
