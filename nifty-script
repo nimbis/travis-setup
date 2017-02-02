@@ -115,9 +115,9 @@ __ensure_reqs_and_decrypt() {
 
         if [ "$GIT_CRYPT_KEY" != "" ]; then
             __ensure_git_crypt
-            echo "$GIT_CRYPT_KEY" | base64 -d > gitcrypt-key
-            git-crypt unlock gitcrypt-key
-            rm -f gitcrypt-key
+            echo "$GIT_CRYPT_KEY" | base64 -d > ${HOME}/gitcrypt-key
+            git-crypt unlock ${HOME}/gitcrypt-key
+            rm -f ${HOME}/gitcrypt-key
         else
             npm install -g git-encrypt
             git config filter.encrypt.smudge "gitcrypt smudge"
