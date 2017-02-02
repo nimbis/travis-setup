@@ -5,7 +5,7 @@ set -e
 NIFTY_GIT_CONFIG_EMAIL=${NIFTY_GIT_CONFIG_EMAIL:=carl.worth+travis@nimbisservices.com}
 NIFTY_TRAVIS_JOBS_URL_BASE=https://magnum.travis-ci.com/${TRAVIS_REPO_SLUG}/jobs
 NIFTY_TRAVIS_JOB_URL=${NIFTY_TRAVIS_JOBS_URL_BASE}/${TRAVIS_JOB_ID}
-NIFTY_TRAVIS_CACHE_DIR=./.travis-cache
+NIFTY_TRAVIS_CACHE_DIR=${HOME}/.travis-cache
 # This should be set by the .travis.yml file if the value needs to change,
 # like when using a public cache repository.
 NIFTY_TRAVIS_CACHE_REPO=${NIFTY_TRAVIS_CACHE_REPO:=git@github.com:nimbis/travis-cache}
