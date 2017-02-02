@@ -59,12 +59,22 @@ __ensure_reqs_and_decrypt() {
         echo "travis_fold:end:npm"
 
         echo "travis_fold:start:decrypt"
-        git config filter.encrypt.smudge "gitcrypt smudge"
-        git config filter.encrypt.clean "gitcrypt clean"
-        git config diff.encrypt.textconv "gitcrypt diff"
-        git config gitcrypt.salt ${GITCRYPT_SALT}
-        git config gitcrypt.pass ${GITCRYPT_PASS}
-        make decrypt
+
+        # We support both the "new" git-crypt based approach as well
+        # as the previously-used git-encrypt based approach.
+
+        if [ "$GIT_CRYPT_KEY" != "" ]; then
+            echo "$GIT_CRYPT_KEY" | base64 -d > gitcrypt-key
+            git-crypt unlock gitcrypt-key
+            rm -f gitcrypt-key
+        else
+            git config filter.encrypt.smudge "gitcrypt smudge"
+            git config filter.encrypt.clean "gitcrypt clean"
+            git config diff.encrypt.textconv "gitcrypt diff"
+            git config gitcrypt.salt ${GITCRYPT_SALT}
+            git config gitcrypt.pass ${GITCRYPT_PASS}
+            make decrypt
+        fi
 
         echo "travis_fold:end:decrypt"
 
