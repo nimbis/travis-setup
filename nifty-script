@@ -310,17 +310,6 @@ travis_for_sites() {
     esac
 
     #####
-    # Nuke all sites other than the one under test
-    # (This avoids any accidental inter-site dependencies)
-    #####
-
-    for site in awesim nimbisservices smlc tss; do
-        if [ "$site" != "$SITE" ]; then
-            rm -rf $site
-        fi
-    done
-
-    #####
     # Check cache and don't repeat tests if succesfully tested before
     #####
 
@@ -337,6 +326,17 @@ travis_for_sites() {
     else
 
         __ensure_reqs_and_decrypt
+
+        #####
+        # Nuke all sites other than the one under test
+        # (This avoids any accidental inter-site dependencies)
+        #####
+
+        for site in awesim nimbisservices smlc tss; do
+            if [ "$site" != "$SITE" ]; then
+                rm -rf $site
+            fi
+        done
 
         make travis-tests
 
