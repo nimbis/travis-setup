@@ -240,10 +240,10 @@ __store_travis_cache() {
 # Run tests for the platform subtree.
 #####
 __travis_for_platform() {
-    cd platform
 
     __ensure_reqs_and_decrypt
 
+    cd platform
     make piprot
     make test
 }
