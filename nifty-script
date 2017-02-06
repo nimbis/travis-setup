@@ -59,6 +59,18 @@ __ensure_latest_pip() {
 }
 
 #####
+# Upgrade to latest setuptools
+#
+# Travis has setuptools 12.0.5 installed by default, which does not have the
+# support for environment markers that exists in v20.10.0 and later. This
+# functionality is necessary when installing some packages, such as
+# html5lib v0.999999999 and django-shop v0.9.3
+#####
+__ensure_latest_setuptools() {
+    pip install --upgrade setuptools
+}
+
+#####
 # Ensure the git-crypt program is available. If not, download it, compile
 # it and place it on the PATH.
 #####
@@ -134,6 +146,7 @@ __ensure_reqs_and_decrypt() {
 
         echo "travis_fold:start:reqs"
         __ensure_latest_pip
+        __ensure_latest_setuptools
         make reqs
         echo "travis_fold:end:reqs"
 
@@ -517,15 +530,8 @@ verify_coverage_improvement() {
 #####
 nifty_test_app() {
 
-    # Travis appears to have an ancient setuptools installed as part
-    # of its virtualenv. Recent versions of html5lib (at least as of
-    # version 0.999999999) require at least version 18.5 or above for
-    # setuptools. But since this isn't an expressed requirement, we
-    # need to manually upgrade setuptools rather than just trusting
-    # pip to do it for us as part of "make reqs"
-    pip install --upgrade setuptools
-
     __ensure_latest_pip
+    __ensure_latest_setuptools
 
     make reqs
 
