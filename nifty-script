@@ -1,9 +1,12 @@
 #!/bin/bash
 
 # This is used instead of "set -e" because using "set -e" in a sourced script
-# can cause Travis builds to fail even if the script is sucessfully run.
+# can cause Travis builds to fail even if the script is sucessfully run. Note
+# that "set -E" is different, and used to make the functions in this script
+# inherit the trap.
 # See the issue below for more information:
 # https://github.com/travis-ci/travis-ci/issues/891#issuecomment-32318632
+set -E
 trap 'exit' ERR
 
 NIFTY_GIT_CONFIG_EMAIL=${NIFTY_GIT_CONFIG_EMAIL:=carl.worth+travis@nimbisservices.com}
