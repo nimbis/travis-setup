@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# This is used instead of "set -e" because using "set -e" in a sourced script
-# can cause Travis builds to fail even if the script is sucessfully run.
-# See the issue below for more information:
-# https://github.com/travis-ci/travis-ci/issues/891#issuecomment-32318632
-trap 'exit' ERR
+# If any single line of this script fails, we want to exit and have
+# Travis notice that as a test failure.
+set -e
 
 NIFTY_GIT_CONFIG_EMAIL=${NIFTY_GIT_CONFIG_EMAIL:=carl.worth+travis@nimbisservices.com}
 NIFTY_TRAVIS_JOBS_URL_BASE=https://magnum.travis-ci.com/${TRAVIS_REPO_SLUG}/jobs
@@ -555,8 +553,41 @@ nifty_test_app() {
     git push origin +travis-tested
 }
 
-# The only thing this script immediately does when sourced is call
-# __init_travis_cache to initialize our git-repository-based travis cache.
+# Main function
+
+# First, call __init_travis_cache to initialize our
+# git-repository-based travis cache.
 echo "travis_fold:start:init_travis_cache"
 __init_travis_cache
 echo "travis_fold:end:init_travis_cache"
+
+# Test that we are invoked with an argument, (rather than the old
+# approach we were using of sourcing nifty-script). Give a useful
+# error message to help the developer massage their .travis.yaml
+if [ "$#" -lt 1 ]; then
+    echo "nifty-script should now be called with an argument giving the"
+    echo "test mode (rather than being sourced). Fix up .travis.yaml"
+    echo "to look like one of the following as appropriate:"
+    echo ""
+    echo "script:"
+    echo "  - ./.nifty/nifty-script travis_for_sites"
+    echo ""
+    echo "script:"
+    echo "  - ./.nifty/nifty-script nifty_test_app"
+    exit 1
+fi
+
+# Then, invoke the desired nifty testing function depending on the
+# argument passed to nifty-script
+case "$1" in
+    travis_for_sites)
+        travis_for_sites
+        ;;
+    nifty_test_app)
+        nifty_test_app
+        ;;
+    *)
+        echo "Unsupported nifty test mode: $1"
+        exit 1
+        ;;
+esac
