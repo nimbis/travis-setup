@@ -400,7 +400,9 @@ travis_for_sites() {
 
     echo "travis_fold:start:deploy"
     deploy_args=$(./prepare-deploy ${mode} ${SITE} ${TRAVIS_BUILD_NUMBER})
-    make -C ${SITE} deploy-${mode} ${deploy_args}
+    if [ $mode = "staging" ]; then
+        make -C ${SITE} deploy-staging ${deploy_args}
+    fi
     echo "travis_fold:end:deploy"
 
     #####
