@@ -94,7 +94,6 @@ __ensure_reqs_and_decrypt() {
     if [ "$reqs_and_decrypt" = "false" ]; then
 
         echo "travis_fold:start:npm"
-        sh -e /etc/init.d/xvfb start
         npm install -g grunt-cli
         npm install -g bower
         echo "travis_fold:end:npm"
@@ -228,7 +227,8 @@ __store_travis_cache() {
 
 #####
 # Initialize all common and required aspects of the nifty environment,
-# (git-based cache for travis test results, latest version of pip, etc.)
+# (git-based cache for travis test results, latest version of pip,
+# Xvfb server running, etc.)
 #####
 __init_nifty_environment() {
 
@@ -249,6 +249,9 @@ __init_nifty_environment() {
     # and later. This functionality is necessary when installing some
     # packages, such as html5lib v0.999999999 and django-shop v0.9.3
     pip install --upgrade setuptools
+
+    # Start a headless X server, (for doing tests with a web browser)
+    sh -e /etc/init.d/xvfb start
 }
 
 #####
