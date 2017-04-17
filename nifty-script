@@ -48,29 +48,6 @@ __configure_git_authorship() {
 }
 
 #####
-# Upgrade to latest pip
-#
-# Travis has pip 6.0.7 installed by default, which does not know how
-# to install a local version of a package (such as
-# django-shop==0.2.0+nimbis.1).
-#####
-__ensure_latest_pip() {
-    pip install --upgrade pip
-}
-
-#####
-# Upgrade to latest setuptools
-#
-# Travis has setuptools 12.0.5 installed by default, which does not have the
-# support for environment markers that exists in v20.10.0 and later. This
-# functionality is necessary when installing some packages, such as
-# html5lib v0.999999999 and django-shop v0.9.3
-#####
-__ensure_latest_setuptools() {
-    pip install --upgrade setuptools
-}
-
-#####
 # Ensure the git-crypt program is available. If not, download it, compile
 # it and place it on the PATH.
 #####
@@ -145,8 +122,6 @@ __ensure_reqs_and_decrypt() {
         echo "travis_fold:end:decrypt"
 
         echo "travis_fold:start:reqs"
-        __ensure_latest_pip
-        __ensure_latest_setuptools
         make reqs
         echo "travis_fold:end:reqs"
 
@@ -249,6 +224,31 @@ __store_travis_cache() {
     cd ${SITE_DIR}
 
     echo "travis_fold:end:__store_travis_cache_$1"
+}
+
+#####
+# Initialize all common and required aspects of the nifty environment,
+# (git-based cache for travis test results, latest version of pip, etc.)
+#####
+__init_nifty_environment() {
+
+    __init_travis_cache
+
+    # Upgrade to latest pip
+    #
+    # Travis has pip 6.0.7 installed by default, which does not know how
+    # to install a local version of a package (such as
+    # django-shop==0.2.0+nimbis.1).
+    pip install --upgrade pip
+
+
+    # Upgrade to latest setuptools
+    #
+    # Travis has setuptools 12.0.5 installed by default, which does
+    # have the support for environment markers that exists in v20.10.0
+    # and later. This functionality is necessary when installing some
+    # packages, such as html5lib v0.999999999 and django-shop v0.9.3
+    pip install --upgrade setuptools
 }
 
 #####
@@ -532,9 +532,6 @@ verify_coverage_improvement() {
 #####
 nifty_test_app() {
 
-    __ensure_latest_pip
-    __ensure_latest_setuptools
-
     make reqs
 
     make travis-tests
@@ -563,11 +560,11 @@ nifty_test_app() {
 
 # Main function
 
-# First, call __init_travis_cache to initialize our
-# git-repository-based travis cache.
-echo "travis_fold:start:init_travis_cache"
-__init_travis_cache
-echo "travis_fold:end:init_travis_cache"
+# Ensure all expected aspects of the nifty environment are in place,
+# (git-based cache for travis test results, latest version of pip,
+# Xvfb server running and correcti DISPLAY environment variable set,
+# etc.)
+__init_nifty_environment
 
 # Test that we are invoked with an argument, (rather than the old
 # approach we were using of sourcing nifty-script). Give a useful
