@@ -255,37 +255,16 @@ __init_nifty_environment() {
 }
 
 #####
-# Run tests for the platform subtree.
-#####
-__travis_for_platform() {
-
-    __ensure_reqs_and_decrypt
-
-    cd platform
-    make piprot
-    make test
-}
-
-#####
 # For a push to the sites repository, we push out corresponding
 # commits (along with tags) to the site-$SITE repository as well as
 # site-common. Those pushes will then result in testing and/or
 # deployment from within the site-$SITE repository, so there's nothing
 # else we need to do here, (no lettuce tests, no deployment, etc.)
 #
-# If SITE=platform, which indicates a nimbis-platform build, we simply
-# test in house.
 #####
 travis_for_sites() {
 
     echo "=================== Running Travis tests for site $SITE ==================="
-
-    # If this is for platform then call the testing function and return.
-
-    if [ "$SITE" = "platform" ]; then
-        __travis_for_platform
-        return
-    fi
 
     # If this is a commit being pushed to the master branch, then
     # we want to test and deploy to staging.
