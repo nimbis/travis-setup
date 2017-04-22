@@ -166,165 +166,6 @@ __init_nifty_environment() {
 }
 
 #####
-# For a push to the sites repository, we push out corresponding
-# commits (along with tags) to the site-$SITE repository as well as
-# site-common. Those pushes will then result in testing and/or
-# deployment from within the site-$SITE repository, so there's nothing
-# else we need to do here, (no lettuce tests, no deployment, etc.)
-#
-#####
-travis_for_sites() {
-
-    echo "=================== Running Travis tests for site $SITE ==================="
-
-    # If this is a commit being pushed to the master branch, then
-    # we want to test and deploy to staging.
-    #
-    # Note: Travis is obnoxious in that it clobbers TRAVIS_BRANCH
-    # with the tag name if a tag is being pushed, (even though the
-    # same name is set in TRAVIS_TAG too). The upshot is that
-    # pushing a tag at the same time as pushing to master will
-    # prevent the detection of the master branch here, and will
-    # prevent Travis from doing any deployment.
-    #
-    # If, instead, this is a push of a tag named
-    # "production-$SITE" then we want to deploy to production, but
-    # *only* for the particular site.
-    #
-    # Any other case is treated as a feature branch, (it will be
-    # tested, but not deployed).
-
-    case "$TRAVIS_BRANCH" in
-    master)
-        mode="staging"
-        ;;
-    production-*)
-        if [ "$TRAVIS_BRANCH" = "production-$SITE" ]; then
-            mode="production"
-        else
-            echo "This tag $TRAVIS_BRANCH was not intended for site $SITE"
-            echo "Exiting"
-            return
-        fi
-        if [ "$SITE" = "tss" ]; then
-            echo "Travis is not authorized to deploy to the tss site."
-            echo "Exiting"
-            return
-        fi
-        ;;
-    *)
-        mode="feature"
-        ;;
-    esac
-
-    #####
-    # Check cache and don't repeat tests if succesfully tested before
-    #####
-
-    echo "travis_fold:start:__check_travis_cache_tested"
-    tested=$(__check_travis_cache tested ${CACHE_REPO_KEY} ${TRAVIS_COMMIT} ${common_commit})
-    echo "travis_fold:end:__check_travis_cache_tested"
-
-    if [ -n "$tested" ]; then
-        echo "This commit has previously been tested successfully. Not testing again."
-        echo ""
-        echo "The report from the previous run can be seen here:"
-        echo ""
-        echo "$tested"
-    else
-
-        __ensure_reqs_and_decrypt
-
-        #####
-        # Nuke all sites other than the one under test
-        # (This avoids any accidental inter-site dependencies)
-        #####
-
-        for site in awesim nimbisservices smlc tss; do
-            if [ "$site" != "$SITE" ]; then
-                rm -rf $site
-            fi
-        done
-
-        make travis-tests
-
-        #####
-        # Now that testing has completed successfully, add a new
-        # commit to the cache repository and push it out.
-        ####
-        __store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${CACHE_REPO_KEY} ${TRAVIS_COMMIT} ${common_commit}
-    fi
-
-    ####
-    # If this is a feature branch, then we don't deploy.
-    ####
-    if [ "$mode" = "feature" ]; then
-        echo "Travis branch (${TRAVIS_BRANCH}) not a \"master\" nor a"
-        echo "\"production-\" tag so not deploying."
-        return;
-    fi
-
-    echo "travis_fold:start:__check_travis_cache_deployed"
-    deployed=$(__check_travis_cache deployed ${CACHE_REPO_KEY} ${mode} ${TRAVIS_COMMIT} ${common_commit})
-    echo "travis_fold:end:__check_travis_cache_deployed"
-
-    if [ -n "$deployed" ]; then
-        echo "This commit has been previously deployed successfully. Not deploying again."
-        echo ""
-        echo "The report from the previous deploy run can be seen here:"
-        echo ""
-        echo "$deployed"
-        return
-    fi
-
-    if [ "$SITE" = "tss" ]; then
-        echo "Travis is not authorized to deploy to the tss site."
-        echo ""
-        echo "A developer with the necessary credentials will need to manually"
-        echo "deploy with a command such as:"
-        echo ""
-        echo "  make deploy-${mode} SITE=tss"
-        echo ""
-        echo "run from the top-level of the 'sites' repository."
-        return
-    fi
-
-    __ensure_reqs_and_decrypt
-
-    echo "travis_fold:start:deploy"
-    deploy_args=$(./prepare-deploy ${mode} ${SITE} ${TRAVIS_BUILD_NUMBER})
-    if [ $mode = "staging" ]; then
-        make -C ${SITE} deploy-staging ${deploy_args}
-    fi
-    echo "travis_fold:end:deploy"
-
-    #####
-    # Now that deployment has completed successfully, there are two
-    # final tasks to be done:
-    #
-    # 1. For deployment to production, we need to add the new tag to
-    #    the "sites" repository for the release, (and delete the
-    #    production-$SITE tag that locks the whole process to a single
-    #    concurrent deployment.
-    #
-    # 2. For any deploy, we add anew commit to the cache repository
-    #    and push it out.
-    ####
-
-    if [ $mode = "production" ]; then
-
-        __configure_git_authorship
-
-        SITE_VERSION=$(cd ${SITE}; python ./setup.py --version)
-        git tag -a -m "Site $SITE release version $SITE_VERSION" $SITE-v$SITE_VERSION production-$SITE
-        git push origin $SITE-v$SITE_VERSION
-        git push origin :production-$SITE
-    fi
-
-    __store_travis_cache $NIFTY_TRAVIS_JOB_URL deployed ${CACHE_REPO_KEY} ${mode} ${TRAVIS_COMMIT} ${common_commit}
-}
-
-#####
 # We store the coverage results for the master branch in the travis-cache
 # repository. We compare current coverage test results to these store
 # results, and if merging the current branch would result in a reduction
@@ -336,7 +177,7 @@ verify_coverage_improvement() {
         echo "Found existing coverage results. Not regenerating."
     else
         if hash coverage 2> /dev/null; then
-            make coverage
+            make coverage SITE=${SITE:-noop}
         else
             echo "Coverage testing cannot proceed because the coverage command could not be found."
             echo ""
@@ -407,10 +248,9 @@ verify_coverage_improvement() {
 }
 
 #####
-# Perform all necessary testing for an app
+# Perform all necessary testing
 #
 # This function assumes the following:
-#
 #
 #	1. The app being tested has a "make reqs" target
 #	2. The app being tested has a "make travis-tests" target
@@ -423,35 +263,6 @@ verify_coverage_improvement() {
 # at least the same or better, a new "travis-tested" tag will be
 # pushed out to the app's repository.
 #####
-nifty_test_app() {
-
-    make reqs
-
-    make travis-tests
-
-    verify_coverage_improvement
-
-    # Do not tag unless we are the master branch and this is not a PR
-    if [[ "$TRAVIS_BRANCH" != "master" ||
-          "$TRAVIS_PULL_REQUEST" = "true" ]]; then
-        return
-    fi
-
-    # Also, do not tag if this is not a private repository. We detect
-    # private repositories by looking for a "source_key" to be defined
-    # in the .travis.yml file
-    if ! grep -q ^source_key .travis.yml; then
-        return
-    fi
-
-    __configure_git_authorship
-
-    # Tag the current commit
-    git tag -fm "Travis tested master" travis-tested
-    git push origin +travis-tested
-}
-
-# Main function
 
 # Ensure all expected aspects of the nifty environment are in place,
 # (git-based cache for travis test results, latest version of pip,
@@ -459,33 +270,21 @@ nifty_test_app() {
 # etc.)
 __init_nifty_environment
 
-# Test that we are invoked with an argument, (rather than the old
-# approach we were using of sourcing nifty-script). Give a useful
-# error message to help the developer massage their .travis.yaml
-if [ "$#" -lt 1 ]; then
-    echo "nifty-script should now be called with an argument giving the"
-    echo "test mode (rather than being sourced). Fix up .travis.yaml"
-    echo "to look like one of the following as appropriate:"
+tested=$(__check_travis_cache tested ${CACHE_REPO_KEY} ${TRAVIS_COMMIT} ${common_commit})
+
+if [ -n "$tested" ]; then
+    echo "This commit has previously been tested successfully. Not testing again."
     echo ""
-    echo "script:"
-    echo "  - ./.nifty/nifty-script travis_for_sites"
+    echo "The report from the previous run can be seen here:"
     echo ""
-    echo "script:"
-    echo "  - ./.nifty/nifty-script nifty_test_app"
-    exit 1
+    echo "$tested"
+    exit 0
 fi
 
-# Then, invoke the desired nifty testing function depending on the
-# argument passed to nifty-script
-case "$1" in
-    travis_for_sites)
-        travis_for_sites
-        ;;
-    nifty_test_app)
-        nifty_test_app
-        ;;
-    *)
-        echo "Unsupported nifty test mode: $1"
-        exit 1
-        ;;
-esac
+make reqs SITE=${SITE:-noop}
+make travis-tests SITE=${SITE:-noop}
+
+verify_coverage_improvement
+
+__store_travis_cache $NIFTY_TRAVIS_JOB_URL tested ${CACHE_REPO_KEY} ${TRAVIS_COMMIT} ${common_commit}
+
