@@ -15,7 +15,7 @@ NIFTY_TRAVIS_CACHE_REPO=${NIFTY_TRAVIS_CACHE_REPO:=git@github.com:nimbis/travis-
 # Primary key for travis cache. For this we use the TRAVIS_REPO_SLUG
 # and then append the value of $SITE (if set) since we do multiple
 # tests for different sites within the same repository.
-CACHE_REPO_KEY=${TRAVIS_REPO_SLUG}${SITE:+-}${SITE}
+CACHE_REPO_KEY=${TRAVIS_REPO_SLUG}-${TRAVIS_JOB_NUMBER}${SITE:+-}${SITE}
 
 # Absolute path for original clone of repository (so always easy to return to)
 SITE_DIR=$(pwd)
