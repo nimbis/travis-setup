@@ -12,6 +12,12 @@ NIFTY_TRAVIS_CACHE_DIR=${HOME}/.travis-cache
 # like when using a public cache repository.
 NIFTY_TRAVIS_CACHE_REPO=${NIFTY_TRAVIS_CACHE_REPO:=git@github.com:nimbis/travis-cache}
 
+# Travis does not have the `nimble` repository available (nor should it
+# need it), so we explicitly set the NIMBLE environment variable to a
+# value that will avoid any attempt to use it (or result in a clear error
+# if there is some errant attempt to use it).
+NIMBLE=nimble-not-available-in-travis
+
 # Primary key for travis cache. For this we use the TRAVIS_REPO_SLUG
 # and then append the value of $SITE (if set) since we do multiple
 # tests for different sites within the same repository.
